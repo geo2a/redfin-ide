@@ -1,0 +1,22 @@
+packages: . ../unreasonably-polymorphic-isa/
+
+-- source-repository-package
+--     type: git
+--     location: https://github.com/geo2a/unreasonably-polymorphic-isa/
+--     tag: 28bb29df383382425e3f3e7b864d7b9b7ebbdbd2
+
+source-repository-package
+    type: git
+    location: https://github.com/pkamenarsky/replica.git
+    tag: 46d2fd3b2c236d573f1d6002eb58cc95b2ba03b9
+
+source-repository-package
+  type: git
+  location: https://github.com/pkamenarsky/concur.git
+  tag: dc5347b35c79654d58fa95716f425ee7248504fb
+  subdir: concur-core
+
+source-repository-package
+    type: git
+    location: https://github.com/pkamenarsky/concur-replica/
+    tag: 7d16bcc93114c62252e3e22c208dc2a819f02435
