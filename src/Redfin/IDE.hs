@@ -51,9 +51,9 @@ sourceWidget =
                  , ("leftpane", True)
                  ]
       ]
-      [pre [] [code [] [text src]]]
-  where src :: Text.Text
-        src = Text.unlines $ map (Text.pack . show) $ assemble Example.addLowLevel
+      [ol [classList [("sourceCode", True)]] (map (li [] . (:[]) . text) src)]
+  where src :: [Text.Text]
+        src = map (Text.pack . show . snd) $ assemble Example.addLowLevel
 
 traceWidget :: TChan NodeId -> Widget HTML a
 traceWidget nodeIdVar = do
