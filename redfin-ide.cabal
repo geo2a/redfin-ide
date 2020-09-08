@@ -21,9 +21,9 @@ source-repository head
 executable redfin-ide-exe
   main-is: Main.hs
   other-modules:
-      IDE,
-      Trace,
-      TraceWidget
+      Redfin.IDE,
+      Redfin.IDE.State,
+      Redfin.IDE.Trace
   hs-source-dirs:
       src
   default-extensions: LambdaCase

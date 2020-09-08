@@ -1,4 +1,4 @@
-module TraceWidget where
+module Redfin.IDE.Trace where
 
 import           Concur.Core
 import           Concur.Replica
@@ -109,8 +109,6 @@ htmlTrace (Trace tree) =
               Nothing -> False
           _ -> False
 
--- htmlTrace :: Trace Context -> HTML
--- htmlTrace (Trace tree) =
---   transformHTML isLeaf (mapVText (Text.cons '\n')) .
---   showTreeHtml' . enumTree . fmap nodeBody $ tree
---   where
+--------------------------------------------------------------------------------
+renderContext :: Context -> Text
+renderContext = undefined

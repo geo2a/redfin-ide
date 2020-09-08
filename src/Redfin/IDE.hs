@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module IDE
+module Redfin.IDE
   ( ide
   ) where
 
@@ -24,14 +24,10 @@ import           ISA.Types.Instruction.Decode
 import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.Trace     hiding (htmlTrace)
 
-import           TraceWidget                  (htmlTrace)
+import           Redfin.IDE.State
+import           Redfin.IDE.Trace             (htmlTrace)
 
 import qualified ISA.Example.Add              as Example
-
-data ViewData = MkViewData { program    :: Text
-                           , trace      :: Trace Context
-                           , activeNode :: NodeId
-                           }
 
 -- | Either-like datatype for tracking new/old content of tags
 data Contents a b = Old a
@@ -82,7 +78,7 @@ stateWidget n nodeIdChan = do
                          , ("rightpane", True)
                          ]
               ]
-          [pre [] [text (Text.pack . show $ lookup n symexecTrace)]]
+          [displayContext (lookup n symexecTrace)]
 
 ide :: Widget HTML a
 ide = do

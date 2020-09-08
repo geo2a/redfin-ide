@@ -13,7 +13,7 @@ import qualified Network.Wai.Middleware.Static as Static
 import           Network.WebSockets            (defaultConnectionOptions)
 import           Text.Read                     (readMaybe)
 
-import           IDE
+import           Redfin.IDE
 
 static :: Wai.Middleware
 static =
