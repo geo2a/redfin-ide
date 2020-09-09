@@ -7,7 +7,7 @@ module Redfin.IDE
 import           Concur.Core
 import           Concur.Replica               hiding (id)
 import qualified Concur.Replica.DOM.Events    as P
-import           Control.Applicative          ((<|>))
+import           Control.Applicative          (empty, (<|>))
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class       (liftIO)
 import qualified Data.Aeson                   as A
@@ -83,53 +83,52 @@ sourceWidget =
         src = map (Text.pack . show . snd) $ assemble Example.addLowLevel
 
 traceWidget :: TVar (Trace Context)
-            -> Steps -> TMVar Steps
-            -> TMVar NodeId -> Widget HTML a
-traceWidget traceVar steps stepsVar nodeIdVar = do
-  contents <- Old <$> widget steps
-          <|> New <$> (liftIO . atomically $ takeTMVar stepsVar)
-  case contents of
-    Old _      -> traceWidget traceVar steps stepsVar nodeIdVar
-    New steps' -> traceWidget traceVar steps' stepsVar nodeIdVar
-  where widget steps = do
+            -> TMVar NodeId
+            -> TMVar Steps -> Steps
+            -> Widget HTML a
+traceWidget traceVar nodeIdVar stepsVar steps =
+  widget <|> (liftIO . atomically $ takeTMVar stepsVar) >>=
+  traceWidget traceVar nodeIdVar stepsVar
+  where
+    widget :: Widget HTML Steps
+    widget = do
           let trace = symexecTrace steps
           n <- div [classList [ ("pane", True)
                               , ("middlepane", True)
                               ]
                    ]
                [pre [] [htmlTrace trace]]
-          liftIO . atomically $ writeTVar traceVar trace
-          liftIO . atomically $ putTMVar nodeIdVar n
-
+          liftIO . atomically $ writeTVar traceVar trace *>
+                                putTMVar nodeIdVar n
+          pure steps
 
 -- | TODO: Maybe invalidate the state widget after changing the amount of steps,
 --   since nodes can have different ids in different partial traces
-stateWidget :: TVar (Trace Context) -> NodeId -> TMVar NodeId -> Widget HTML a
-stateWidget traceVar n nodeIdChan = do
-  contents <- Old <$> widget
-          <|> New <$> (liftIO . atomically $ takeTMVar nodeIdChan)
-  case contents of
-    Old _  -> stateWidget traceVar n nodeIdChan
-    New n' -> stateWidget traceVar n' nodeIdChan
+stateWidget :: TVar (Trace Context) -> TMVar NodeId -> NodeId -> Widget HTML a
+stateWidget traceVar nodeIdVar n =
+  widget <|> (liftIO . atomically $ takeTMVar nodeIdVar) >>=
+  stateWidget traceVar nodeIdVar
   where
-    widget :: Widget HTML NodeId
+    widget :: Widget HTML a
     widget = do
       trace <- liftIO . atomically $ readTVar traceVar
       div [classList [ ("pane", True)
                      , ("rightpane", True)
                      ]
           ]
-        [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
-        , displayContext (lookup n trace)
-        ]
+          [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
+          , displayContext (lookup n trace)
+          ]
 
 ide :: Widget HTML a
 ide = do
   nodeIdVar <- liftIO $ newTMVarIO 0
-  stepsVar <- liftIO $ newTMVarIO 0
-  traceVar <- liftIO $ newTVarIO (symexecTrace 0)
+  stepsVar  <- liftIO $ newTMVarIO 0
+  traceVar  <- liftIO $ newTVarIO (symexecTrace 0)
 
-  (topWidget 0 stepsVar
-     <|> sourceWidget
-     <|> (traceWidget traceVar 0 stepsVar nodeIdVar)
-          <|> stateWidget traceVar 0 nodeIdVar)
+  foldl (<|>) empty
+    [ topWidget 0 stepsVar
+    , sourceWidget
+    , (traceWidget traceVar nodeIdVar stepsVar 0)
+    , stateWidget traceVar nodeIdVar 0
+    ]

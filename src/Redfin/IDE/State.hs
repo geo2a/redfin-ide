@@ -74,7 +74,7 @@ conjunct = \case
                    , span [] [text ")"]
                    ]
 
-displayContext :: Maybe Context -> Widget HTML NodeId
+displayContext :: Maybe Context -> Widget HTML a
 displayContext x =
   case x of
     Nothing -> text $ "Oops: no such state in the trace"
