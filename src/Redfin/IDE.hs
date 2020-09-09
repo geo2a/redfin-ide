@@ -36,10 +36,16 @@ data Contents a b = Old a
 
 type Steps = Int
 
+data IDEState =
+  IDEState { _trace      :: TVar (Trace Context)
+           , _steps      :: TMVar Steps
+           , _activeNode :: TMVar NodeId
+           }
+
 symexecTrace :: Steps -> Trace Context
 symexecTrace steps = Example.symexecTrace steps
 
-topWidget :: Steps -> TChan Steps -> Widget HTML a
+topWidget :: Steps -> TMVar Steps -> Widget HTML a
 topWidget steps stepsVar = do
   steps' <-
     div [classList [ ("pane", True)
@@ -47,8 +53,16 @@ topWidget steps stepsVar = do
                    ]
         ]
         [controlWidget steps]
-  liftIO . atomically $ writeTChan stepsVar steps'
+  liftIO . atomically $ putTMVar stepsVar steps'
   topWidget steps' stepsVar
+
+-- examplesWidget :: Widget HTML a
+-- examplesWidget =
+--   ul [] [ li [] [text "Add"]
+--         , li [] [text "Sum"]
+--         , li [] [text "GCD"]
+--         , li [] [text "Motor control"]
+--         ]
 
 controlWidget :: Steps -> Widget HTML Steps
 controlWidget s =
@@ -69,11 +83,11 @@ sourceWidget =
         src = map (Text.pack . show . snd) $ assemble Example.addLowLevel
 
 traceWidget :: TVar (Trace Context)
-            -> Steps -> TChan Steps
-            -> TChan NodeId -> Widget HTML a
+            -> Steps -> TMVar Steps
+            -> TMVar NodeId -> Widget HTML a
 traceWidget traceVar steps stepsVar nodeIdVar = do
   contents <- Old <$> widget steps
-          <|> New <$> (liftIO . atomically $ readTChan stepsVar)
+          <|> New <$> (liftIO . atomically $ takeTMVar stepsVar)
   case contents of
     Old _      -> traceWidget traceVar steps stepsVar nodeIdVar
     New steps' -> traceWidget traceVar steps' stepsVar nodeIdVar
@@ -85,15 +99,15 @@ traceWidget traceVar steps stepsVar nodeIdVar = do
                    ]
                [pre [] [htmlTrace trace]]
           liftIO . atomically $ writeTVar traceVar trace
-          liftIO . atomically $ writeTChan nodeIdVar n
+          liftIO . atomically $ putTMVar nodeIdVar n
 
 
 -- | TODO: Maybe invalidate the state widget after changing the amount of steps,
 --   since nodes can have different ids in different partial traces
-stateWidget :: TVar (Trace Context) -> NodeId -> TChan NodeId -> Widget HTML a
+stateWidget :: TVar (Trace Context) -> NodeId -> TMVar NodeId -> Widget HTML a
 stateWidget traceVar n nodeIdChan = do
   contents <- Old <$> widget
-          <|> New <$> (liftIO . atomically $ readTChan nodeIdChan)
+          <|> New <$> (liftIO . atomically $ takeTMVar nodeIdChan)
   case contents of
     Old _  -> stateWidget traceVar n nodeIdChan
     New n' -> stateWidget traceVar n' nodeIdChan
@@ -111,15 +125,11 @@ stateWidget traceVar n nodeIdChan = do
 
 ide :: Widget HTML a
 ide = do
-  nodeIdChan <- liftIO $ newBroadcastTChanIO
-  nodeIdChan' <- liftIO . atomically . dupTChan $ nodeIdChan
-
-  stepsChan <- liftIO $ newBroadcastTChanIO
-  stepsChan' <- liftIO . atomically . dupTChan $ stepsChan
-
+  nodeIdVar <- liftIO $ newTMVarIO 0
+  stepsVar <- liftIO $ newTMVarIO 0
   traceVar <- liftIO $ newTVarIO (symexecTrace 0)
 
-  (topWidget 0 stepsChan
+  (topWidget 0 stepsVar
      <|> sourceWidget
-     <|> (traceWidget traceVar 0 stepsChan' nodeIdChan'
-          <|> stateWidget traceVar 0 nodeIdChan'))
+     <|> (traceWidget traceVar 0 stepsVar nodeIdVar)
+          <|> stateWidget traceVar 0 nodeIdVar)
