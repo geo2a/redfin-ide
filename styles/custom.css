@@ -59,6 +59,7 @@ body, html {
 
 /* Trace styling */
 .node {
+
 }
 .interactive:hover {
     background-color: #CCC;
@@ -70,8 +71,7 @@ body, html {
 }
 .expanded {
     cursor:      pointer;
-    color:       #009;
-    font-weight: bold;
+    /* color:       grey; */
 }
 .fixed {
     color: black;

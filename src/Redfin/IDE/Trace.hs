@@ -12,8 +12,10 @@ import qualified Data.Tree                  as Tree
 import           Prelude                    hiding (div, id, span)
 
 import           ISA.Types
-import           ISA.Types.Symbolic.Context
+import           ISA.Types.Symbolic.Context hiding (showIR)
 import           ISA.Types.Symbolic.Trace
+
+import           Redfin.IDE.State
 
 mapVText :: (Text -> Text) -> VDOM -> VDOM
 mapVText f s = case s of
@@ -57,7 +59,10 @@ node args@(ctx, n) = do
        , id ("node" <> (Text.pack . show $ n))
        , Right <$> onMouseDown
        ]
-       [text $ Text.pack . show $ n]
+       [ text $ (Text.pack . show $ n)
+              -- <> " | "
+              -- <> (showIR $ Map.findWithDefault 0 IR (_bindings ctx))
+       ]
   case ev of
     Left e  -> node args
     Right e -> pure n

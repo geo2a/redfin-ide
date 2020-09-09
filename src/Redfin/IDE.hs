@@ -34,16 +34,30 @@ data Contents a b = Old a
                   | New b
                   deriving (Show, Eq)
 
-symexecTrace :: Trace Context
-symexecTrace = Example.symexecTrace 100
+type Steps = Int
 
-topWidget :: Widget HTML a
-topWidget =
-  div [classList [ ("pane", True)
-                 , ("toppane", True)
-                 ]
+symexecTrace :: Steps -> Trace Context
+symexecTrace steps = Example.symexecTrace steps
+
+topWidget :: TChan Steps -> Widget HTML a
+topWidget stepsVar = do
+  steps <-
+    div [classList [ ("pane", True)
+                   , ("toppane", True)
+                   ]
+        ]
+        [controlWidget]
+  liftIO . atomically $ writeTChan stepsVar steps
+  liftIO $ print steps
+  topWidget stepsVar
+
+controlWidget :: Widget HTML Steps
+controlWidget =
+  read . Text.unpack . targetValue . target <$>
+    div []
+      [ text "Symbolic execution steps: "
+      , input [onChange]
       ]
-      [text "aaa"]
 
 sourceWidget :: Widget HTML a
 sourceWidget =
@@ -55,35 +69,54 @@ sourceWidget =
   where src :: [Text.Text]
         src = map (Text.pack . show . snd) $ assemble Example.addLowLevel
 
-traceWidget :: TChan NodeId -> Widget HTML a
-traceWidget nodeIdVar = do
-  n <- div [classList [ ("pane", True)
-                      , ("middlepane", True)
-                      ]
-           ]
-       [pre [] [htmlTrace symexecTrace]]
-  liftIO . atomically $ writeTChan nodeIdVar n
-  traceWidget nodeIdVar
+traceWidget :: TVar (Trace Context)
+            -> Steps -> TChan Steps
+            -> TChan NodeId -> Widget HTML a
+traceWidget traceVar steps stepsVar nodeIdVar = do
+  contents <- Old <$> widget steps
+          <|> New <$> (liftIO . atomically $ readTChan stepsVar)
+  case contents of
+    Old _      -> traceWidget traceVar steps stepsVar nodeIdVar
+    New steps' -> traceWidget traceVar steps' stepsVar nodeIdVar
+  where widget steps = do
+          let trace = symexecTrace steps
+          n <- div [classList [ ("pane", True)
+                              , ("middlepane", True)
+                              ]
+                   ]
+               [pre [] [htmlTrace trace]]
+          liftIO . atomically $ writeTVar traceVar trace
+          liftIO . atomically $ writeTChan nodeIdVar n
 
 
-stateWidget :: NodeId -> TChan NodeId -> Widget HTML a
-stateWidget n nodeIdChan = do
+stateWidget :: TVar (Trace Context) -> NodeId -> TChan NodeId -> Widget HTML a
+stateWidget traceVar n nodeIdChan = do
   contents <- Old <$> widget
           <|> New <$> (liftIO . atomically $ readTChan nodeIdChan)
   case contents of
-    Old _  -> stateWidget n nodeIdChan
-    New n' -> stateWidget n' nodeIdChan
-  where widget =
-          div [classList [ ("pane", True)
-                         , ("rightpane", True)
-                         ]
-              ]
-          [displayContext (lookup n symexecTrace)]
+    Old _  -> stateWidget traceVar n nodeIdChan
+    New n' -> stateWidget traceVar n' nodeIdChan
+  where
+    widget :: Widget HTML NodeId
+    widget = do
+      trace <- liftIO . atomically $ readTVar traceVar
+      div [classList [ ("pane", True)
+                     , ("rightpane", True)
+                     ]
+          ]
+        [displayContext (lookup n trace)]
 
 ide :: Widget HTML a
 ide = do
   nodeIdChan <- liftIO $ newBroadcastTChanIO
-  (topWidget
+  nodeIdChan' <- liftIO . atomically . dupTChan $ nodeIdChan
+
+  stepsChan <- liftIO $ newBroadcastTChanIO
+  stepsChan' <- liftIO . atomically . dupTChan $ stepsChan
+
+  traceVar <- liftIO $ newTVarIO (symexecTrace 0)
+
+  (topWidget stepsChan
      <|> sourceWidget
-     <|> ((liftIO . atomically . dupTChan $ nodeIdChan) >>=
-            \c -> traceWidget c <|> stateWidget 0 c))
+     <|> (traceWidget traceVar 0 stepsChan' nodeIdChan'
+          <|> stateWidget traceVar 0 nodeIdChan'))
