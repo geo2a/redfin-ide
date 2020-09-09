@@ -39,24 +39,23 @@ type Steps = Int
 symexecTrace :: Steps -> Trace Context
 symexecTrace steps = Example.symexecTrace steps
 
-topWidget :: TChan Steps -> Widget HTML a
-topWidget stepsVar = do
-  steps <-
+topWidget :: Steps -> TChan Steps -> Widget HTML a
+topWidget steps stepsVar = do
+  steps' <-
     div [classList [ ("pane", True)
                    , ("toppane", True)
                    ]
         ]
-        [controlWidget]
-  liftIO . atomically $ writeTChan stepsVar steps
-  liftIO $ print steps
-  topWidget stepsVar
+        [controlWidget steps]
+  liftIO . atomically $ writeTChan stepsVar steps'
+  topWidget steps' stepsVar
 
-controlWidget :: Widget HTML Steps
-controlWidget =
+controlWidget :: Steps -> Widget HTML Steps
+controlWidget s =
   read . Text.unpack . targetValue . target <$>
     div []
-      [ text "Symbolic execution steps: "
-      , input [onChange]
+      [ text ("Symbolic execution steps: " <> Text.pack (show s))
+      , input [placeholder "Change", onChange, autofocus True]
       ]
 
 sourceWidget :: Widget HTML a
@@ -89,6 +88,8 @@ traceWidget traceVar steps stepsVar nodeIdVar = do
           liftIO . atomically $ writeTChan nodeIdVar n
 
 
+-- | TODO: Maybe invalidate the state widget after changing the amount of steps,
+--   since nodes can have different ids in different partial traces
 stateWidget :: TVar (Trace Context) -> NodeId -> TChan NodeId -> Widget HTML a
 stateWidget traceVar n nodeIdChan = do
   contents <- Old <$> widget
@@ -104,7 +105,9 @@ stateWidget traceVar n nodeIdChan = do
                      , ("rightpane", True)
                      ]
           ]
-        [displayContext (lookup n trace)]
+        [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
+        , displayContext (lookup n trace)
+        ]
 
 ide :: Widget HTML a
 ide = do
@@ -116,7 +119,7 @@ ide = do
 
   traceVar <- liftIO $ newTVarIO (symexecTrace 0)
 
-  (topWidget stepsChan
+  (topWidget 0 stepsChan
      <|> sourceWidget
      <|> (traceWidget traceVar 0 stepsChan' nodeIdChan'
           <|> stateWidget traceVar 0 nodeIdChan'))
