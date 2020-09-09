@@ -1,15 +1,19 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Redfin.IDE
   ( ide
   ) where
 
 import           Concur.Core
+import           Concur.Core.Types
 import           Concur.Replica               hiding (id)
 import qualified Concur.Replica.DOM.Events    as P
 import           Control.Applicative          (empty, (<|>))
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class       (liftIO)
+import           Control.Monad.Reader
+import           Control.ShiftMap
 import qualified Data.Aeson                   as A
 import           Data.Functor                 (void)
 import           Data.Text                    (Text)
@@ -42,38 +46,40 @@ data IDEState =
            , _activeNode :: TMVar NodeId
            }
 
+type App a = IDEState -> Widget HTML a
+
 symexecTrace :: Steps -> Trace Context
 symexecTrace steps = Example.symexecTrace steps
 
-topWidget :: Steps -> TMVar Steps -> Widget HTML a
-topWidget steps stepsVar = do
+topWidget :: Steps -> App a
+topWidget steps state = do
   steps' <-
     div [classList [ ("pane", True)
                    , ("toppane", True)
                    ]
         ]
-        [controlWidget steps]
-  liftIO . atomically $ putTMVar stepsVar steps'
-  topWidget steps' stepsVar
+        [stepsWidget steps]
+  liftIO . atomically $ putTMVar (_steps state) steps'
+  topWidget steps' state
 
--- examplesWidget :: Widget HTML a
--- examplesWidget =
---   ul [] [ li [] [text "Add"]
---         , li [] [text "Sum"]
---         , li [] [text "GCD"]
---         , li [] [text "Motor control"]
---         ]
+-- -- -- examplesWidget :: Widget HTML a
+-- -- -- examplesWidget =
+-- -- --   ul [] [ li [] [text "Add"]
+-- -- --         , li [] [text "Sum"]
+-- -- --         , li [] [text "GCD"]
+-- -- --         , li [] [text "Motor control"]
+-- -- --         ]
 
-controlWidget :: Steps -> Widget HTML Steps
-controlWidget s =
+stepsWidget :: Steps -> Widget HTML Steps
+stepsWidget s =
   read . Text.unpack . targetValue . target <$>
     div []
       [ text ("Symbolic execution steps: " <> Text.pack (show s))
       , input [placeholder "Change", onChange, autofocus True]
       ]
 
-sourceWidget :: Widget HTML a
-sourceWidget =
+sourceWidget :: App a
+sourceWidget state =
   div [classList [ ("pane", True)
                  , ("leftpane", True)
                  ]
@@ -82,13 +88,11 @@ sourceWidget =
   where src :: [Text.Text]
         src = map (Text.pack . show . snd) $ assemble Example.addLowLevel
 
-traceWidget :: TVar (Trace Context)
-            -> TMVar NodeId
-            -> TMVar Steps -> Steps
-            -> Widget HTML a
-traceWidget traceVar nodeIdVar stepsVar steps =
-  widget <|> (liftIO . atomically $ takeTMVar stepsVar) >>=
-  traceWidget traceVar nodeIdVar stepsVar
+traceWidget :: Steps
+            -> App a
+traceWidget steps state =
+  widget <|> (liftIO . atomically $ takeTMVar (_steps state)) >>=
+  \steps' -> traceWidget steps' state
   where
     widget :: Widget HTML Steps
     widget = do
@@ -98,20 +102,20 @@ traceWidget traceVar nodeIdVar stepsVar steps =
                               ]
                    ]
                [pre [] [htmlTrace trace]]
-          liftIO . atomically $ writeTVar traceVar trace *>
-                                putTMVar nodeIdVar n
+          liftIO . atomically $ writeTVar (_trace state) trace *>
+                                putTMVar (_activeNode state) n
           pure steps
 
 -- | TODO: Maybe invalidate the state widget after changing the amount of steps,
 --   since nodes can have different ids in different partial traces
-stateWidget :: TVar (Trace Context) -> TMVar NodeId -> NodeId -> Widget HTML a
-stateWidget traceVar nodeIdVar n =
-  widget <|> (liftIO . atomically $ takeTMVar nodeIdVar) >>=
-  stateWidget traceVar nodeIdVar
+stateWidget :: NodeId -> App a
+stateWidget n state =
+  widget <|> (liftIO . atomically $ takeTMVar (_activeNode state)) >>=
+  \n -> stateWidget n state
   where
     widget :: Widget HTML a
     widget = do
-      trace <- liftIO . atomically $ readTVar traceVar
+      trace <- liftIO . atomically $ readTVar (_trace state)
       div [classList [ ("pane", True)
                      , ("rightpane", True)
                      ]
@@ -126,9 +130,11 @@ ide = do
   stepsVar  <- liftIO $ newTMVarIO 0
   traceVar  <- liftIO $ newTVarIO (symexecTrace 0)
 
-  foldl (<|>) empty
-    [ topWidget 0 stepsVar
+  let initialState = IDEState traceVar stepsVar nodeIdVar
+
+  foldl (<|>) empty . map ($ initialState) $
+    [ topWidget 0
     , sourceWidget
-    , (traceWidget traceVar nodeIdVar stepsVar 0)
-    , stateWidget traceVar nodeIdVar 0
+    , traceWidget 0
+    , stateWidget 0
     ]
