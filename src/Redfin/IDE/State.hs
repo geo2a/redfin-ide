@@ -38,7 +38,7 @@ splitToplevelConjs = go []
           SAnd x y -> go (x:xs) y
           SAny x   -> (SAny x):xs
           SConst x -> (SConst x):xs
-          _ -> undefined
+          x -> x : xs
 
 conjunct :: Sym -> Widget HTML a
 conjunct = \case
@@ -80,9 +80,16 @@ displayContext x =
     Nothing -> text $ "Oops: no such state in the trace"
     Just (MkContext vars pc) ->
       let ir = Map.findWithDefault 0 IR vars
+
           h  = Text.pack . show $ Map.findWithDefault 0 (F Halted) vars
           c  = Text.pack . show $ Map.findWithDefault 0 (F Condition) vars
           o  = Text.pack . show $ Map.findWithDefault 0 (F Overflow) vars
+
+          r0 = Text.pack . show $ Map.findWithDefault 0 (Reg R0) vars
+          r1 = Text.pack . show $ Map.findWithDefault 0 (Reg R1) vars
+          r2 = Text.pack . show $ Map.findWithDefault 0 (Reg R2) vars
+          r3 = Text.pack . show $ Map.findWithDefault 0 (Reg R3) vars
+
       in ul [classList [ ("context", True)]]
             [ li [] [keyTag IR, span [] [text $ " : " <> showIR ir]]
             , li [] [
@@ -91,6 +98,15 @@ displayContext x =
                   [ li [] [keyTag (F Halted), span [] [text $ " : " <> h]]
                   , li [] [keyTag (F Condition), span [] [text $ " : " <> c]
                   , li [] [keyTag (F Overflow), span [] [text $ " : " <> o]]]
+                  ]
+                ]
+            , li [] [
+                h4 [] [text "Registers"],
+                ul []
+                  [ li [] [keyTag (Reg R0), span [] [text $ " : " <> r0]]
+                  , li [] [keyTag (Reg R1), span [] [text $ " : " <> r1]
+                  , li [] [keyTag (Reg R2), span [] [text $ " : " <> r2]]
+                  , li [] [keyTag (Reg R3), span [] [text $ " : " <> r3]]]
                   ]
                 ]
             , li [] [

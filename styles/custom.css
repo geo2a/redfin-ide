@@ -31,11 +31,14 @@ body, html {
 }
 
 .middlepane {
-    width: 40%;
+    width: 38%;
     height: 100%;
     float: left;
     border-collapse: collapse;
+    overflow: scroll;
 
+    padding: 0px;
+    padding-left: 5px;
     margin: 5px;
 }
 

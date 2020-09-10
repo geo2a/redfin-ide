@@ -4,6 +4,7 @@ import           Concur.Core
 import           Concur.Replica
 import qualified Concur.Replica.DOM.Events  as P
 import           Control.Applicative        ((<|>))
+import           Control.Concurrent.STM
 import           Control.Monad.State
 import qualified Data.Map                   as Map
 import           Data.Text                  (Text)
@@ -16,6 +17,7 @@ import           ISA.Types.Symbolic.Context hiding (showIR)
 import           ISA.Types.Symbolic.Trace
 
 import           Redfin.IDE.State
+import           Redfin.IDE.Types
 
 mapVText :: (Text -> Text) -> VDOM -> VDOM
 mapVText f s = case s of
@@ -50,8 +52,8 @@ indentChildren :: [Widget HTML a] -> [Widget HTML a]
 indentChildren [] = []
 indentChildren ns = map (mapView indentInit) (init ns) <> [mapView indentLast (last ns)]
 
-node :: (Context, Int) -> Widget HTML NodeId
-node args@(ctx, n) = do
+node :: (Context, Int) -> App a
+node args@(ctx, n) ide = do
   ev <- span [classList [ ("node", True)
                   , ("interactive", True)
                   , ("expanded", True)
@@ -64,8 +66,8 @@ node args@(ctx, n) = do
               -- <> (showIR $ Map.findWithDefault 0 IR (_bindings ctx))
        ]
   case ev of
-    Left e  -> node args
-    Right e -> pure n
+    Left e  -> node args ide
+    Right e -> (liftIO . atomically $ putTMVar (_activeNode ide) n) *> node args ide
 
 children :: Int -> [Widget HTML a] -> Widget HTML a
 children n children =
@@ -84,11 +86,11 @@ enumTree = flip evalState 0 . traverse count
       i <- get; put (i+1)
       return (a,i)
 
-showTreeHtml' :: Tree.Tree (Context, Int) -> Widget HTML NodeId
-showTreeHtml' (Tree.Node (ctx,i) []) = node (ctx, i)
-showTreeHtml' (Tree.Node n ns)
-    = node n <|>
-      children (snd n) (map showTreeHtml' ns)
+showTreeHtml' :: Tree.Tree (Context, Int) -> App a
+showTreeHtml' (Tree.Node (ctx,i) []) ide = node (ctx, i) ide
+showTreeHtml' (Tree.Node n ns) ide
+    = node n ide <|>
+      children (snd n) (map (flip showTreeHtml' ide) ns)
 
 getClass :: VDOM -> Maybe Text
 getClass = \case
@@ -102,10 +104,10 @@ getClass' = \case
   AMap attrs -> Map.lookup "class" attrs >>= getClass'
   _ -> Nothing
 
-htmlTrace :: Trace Context -> Widget HTML NodeId
-htmlTrace (Trace tree) =
+htmlTrace :: Trace Context -> App a
+htmlTrace (Trace tree) ide =
   mapView (transformHTML isLeaf (mapVText (Text.cons '\n'))) .
-  showTreeHtml' . enumTree . fmap nodeBody $ tree
+  (flip showTreeHtml' ide) . enumTree . fmap nodeBody $ tree
   where isLeaf :: VDOM -> Bool
         isLeaf node = case node of
           VNode "span" attrs _ _ ->
@@ -113,7 +115,3 @@ htmlTrace (Trace tree) =
               Just _  -> True
               Nothing -> False
           _ -> False
-
---------------------------------------------------------------------------------
-renderContext :: Context -> Text
-renderContext = undefined
