@@ -9,6 +9,7 @@ body, html {
 .container {
   width: 100%;
   height: 100%;
+  margin: 0; pagging: 0;
 }
 
 .pane {
@@ -31,10 +32,9 @@ body, html {
 }
 
 .middlepane {
-    width: 38%;
+    width: 39%;
     height: 100%;
     float: left;
-    border-collapse: collapse;
     overflow: scroll;
 
     padding: 0px;
@@ -47,7 +47,6 @@ body, html {
   height: 100%;
   position: relative;
   float: right;
-  border-collapse: collapse;
 
   margin: 5px 0px 5px 5px;
 }
@@ -55,10 +54,19 @@ body, html {
 .toppane {
   width: 100%;
   height: 100px;
-  border-collapse: collapse;
 
   margin-bottom: 5px;
 }
+
+.toppane ul {
+    list-style-type:none;
+    display: inline-block;
+}
+
+.toppane div {
+    display: inline-block;
+}
+
 
 /* Trace styling */
 .node {

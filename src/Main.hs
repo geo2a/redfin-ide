@@ -1,5 +1,6 @@
 module Main where
 
+import           Colog.Actions                 (logTextStdout)
 import           Concur.Replica
 import           Control.Applicative           ((<|>))
 import           Control.Monad                 (forever)
@@ -14,6 +15,7 @@ import           Network.WebSockets            (defaultConnectionOptions)
 import           Text.Read                     (readMaybe)
 
 import           Redfin.IDE
+import           Redfin.IDE.Types
 
 static :: Wai.Middleware
 static =
@@ -71,5 +73,6 @@ main = run
   8080
   index
   defaultConnectionOptions
-  static
-  (\_ -> ide)
+  static $ \_ -> do
+    ide <- liftIO $ mkIDE ExampleSum
+    ideWidget logTextStdout ide

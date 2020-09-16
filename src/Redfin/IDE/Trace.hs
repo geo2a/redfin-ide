@@ -53,7 +53,7 @@ indentChildren [] = []
 indentChildren ns = map (mapView indentInit) (init ns) <> [mapView indentLast (last ns)]
 
 node :: (Context, Int) -> App a
-node args@(ctx, n) ide = do
+node args@(ctx, n) logger ide = do
   ev <- span [classList [ ("node", True)
                   , ("interactive", True)
                   , ("expanded", True)
@@ -66,8 +66,8 @@ node args@(ctx, n) ide = do
               -- <> (showIR $ Map.findWithDefault 0 IR (_bindings ctx))
        ]
   case ev of
-    Left e  -> node args ide
-    Right e -> (liftIO . atomically $ putTMVar (_activeNode ide) n) *> node args ide
+    Left e  -> node args logger ide
+    Right e -> (liftIO . atomically $ putTMVar (_activeNode ide) n) *> node args logger ide
 
 children :: Int -> [Widget HTML a] -> Widget HTML a
 children n children =
@@ -87,10 +87,10 @@ enumTree = flip evalState 0 . traverse count
       return (a,i)
 
 showTreeHtml' :: Tree.Tree (Context, Int) -> App a
-showTreeHtml' (Tree.Node (ctx,i) []) ide = node (ctx, i) ide
-showTreeHtml' (Tree.Node n ns) ide
-    = node n ide <|>
-      children (snd n) (map (flip showTreeHtml' ide) ns)
+showTreeHtml' (Tree.Node (ctx,i) []) logger ide = node (ctx, i) logger ide
+showTreeHtml' (Tree.Node n ns) logger ide
+    = node n logger ide <|>
+      children (snd n) (map (\x -> showTreeHtml' x logger ide) ns)
 
 getClass :: VDOM -> Maybe Text
 getClass = \case
@@ -105,9 +105,9 @@ getClass' = \case
   _ -> Nothing
 
 htmlTrace :: Trace Context -> App a
-htmlTrace (Trace tree) ide =
+htmlTrace (Trace tree) logger ide =
   mapView (transformHTML isLeaf (mapVText (Text.cons '\n'))) .
-  (flip showTreeHtml' ide) . enumTree . fmap nodeBody $ tree
+  (\x -> showTreeHtml' x logger ide) . enumTree . fmap nodeBody $ tree
   where isLeaf :: VDOM -> Bool
         isLeaf node = case node of
           VNode "span" attrs _ _ ->
