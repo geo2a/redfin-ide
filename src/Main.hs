@@ -1,6 +1,6 @@
 module Main where
 
-import           Colog.Actions                 (logTextStdout)
+import           Colog.Actions                 (simpleMessageAction)
 import           Concur.Replica
 import           Control.Applicative           ((<|>))
 import           Control.Monad                 (forever)
@@ -74,5 +74,5 @@ main = run
   index
   defaultConnectionOptions
   static $ \_ -> do
-    ide <- liftIO $ mkIDE ExampleSum
-    ideWidget logTextStdout ide
+    ide <- liftIO $ mkIDE ExampleSum simpleMessageAction
+    let ?ide = ide in ideWidget

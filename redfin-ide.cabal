@@ -31,6 +31,7 @@ executable redfin-ide-exe
                     , FlexibleInstances
                     , StandaloneDeriving
                     , OverloadedStrings
+                    , ImplicitParams
   GHC-options:      -Wall
                     -fno-warn-name-shadowing
                     -fno-warn-unused-imports

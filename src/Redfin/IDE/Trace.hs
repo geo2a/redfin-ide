@@ -1,5 +1,11 @@
+{-# LANGUAGE ImplicitParams  #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes      #-}
 module Redfin.IDE.Trace where
 
+import           Colog                      (pattern D, HasLog (..), pattern I,
+                                             LogAction, Message, WithLog,
+                                             richMessageAction)
 import           Concur.Core
 import           Concur.Replica
 import qualified Concur.Replica.DOM.Events  as P
@@ -10,7 +16,7 @@ import qualified Data.Map                   as Map
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import qualified Data.Tree                  as Tree
-import           Prelude                    hiding (div, id, span)
+import           Prelude                    hiding (div, id, log, span)
 
 import           ISA.Types
 import           ISA.Types.Symbolic.Context hiding (showIR)
@@ -53,7 +59,7 @@ indentChildren [] = []
 indentChildren ns = map (mapView indentInit) (init ns) <> [mapView indentLast (last ns)]
 
 node :: (Context, Int) -> App a
-node args@(ctx, n) logger ide = do
+node args@(ctx, n) = do
   ev <- span [classList [ ("node", True)
                   , ("interactive", True)
                   , ("expanded", True)
@@ -61,13 +67,19 @@ node args@(ctx, n) logger ide = do
        , id ("node" <> (Text.pack . show $ n))
        , Right <$> onMouseDown
        ]
-       [ text $ (Text.pack . show $ n)
+       [ text (Text.pack . show $ n)
               -- <> " | "
               -- <> (showIR $ Map.findWithDefault 0 IR (_bindings ctx))
        ]
   case ev of
-    Left e  -> node args logger ide
-    Right e -> (liftIO . atomically $ putTMVar (_activeNode ide) n) *> node args logger ide
+    Left e  -> node args
+    Right e -> do
+      log D $ "Click on node " <> Text.pack (show n)
+      liftIO . atomically $ writeTQueue (_activeNodeQueue ?ide) n
+      -- log D $ "Wrote nodeid " <> Text.pack (show n) <> " into queue"
+      log D =<< Text.pack . show <$>
+        (liftIO . atomically . flushTQueue $ _activeNodeQueue ?ide)
+      node args
 
 children :: Int -> [Widget HTML a] -> Widget HTML a
 children n children =
@@ -87,10 +99,10 @@ enumTree = flip evalState 0 . traverse count
       return (a,i)
 
 showTreeHtml' :: Tree.Tree (Context, Int) -> App a
-showTreeHtml' (Tree.Node (ctx,i) []) logger ide = node (ctx, i) logger ide
-showTreeHtml' (Tree.Node n ns) logger ide
-    = node n logger ide <|>
-      children (snd n) (map (\x -> showTreeHtml' x logger ide) ns)
+showTreeHtml' (Tree.Node (ctx,i) []) = node (ctx, i)
+showTreeHtml' (Tree.Node n ns)
+    = node n <|>
+      children (snd n) (map showTreeHtml' ns)
 
 getClass :: VDOM -> Maybe Text
 getClass = \case
@@ -105,9 +117,9 @@ getClass' = \case
   _ -> Nothing
 
 htmlTrace :: Trace Context -> App a
-htmlTrace (Trace tree) logger ide =
+htmlTrace (Trace tree) =
   mapView (transformHTML isLeaf (mapVText (Text.cons '\n'))) .
-  (\x -> showTreeHtml' x logger ide) . enumTree . fmap nodeBody $ tree
+  showTreeHtml' . enumTree . fmap nodeBody $ tree
   where isLeaf :: VDOM -> Bool
         isLeaf node = case node of
           VNode "span" attrs _ _ ->
