@@ -64,21 +64,17 @@ node args@(ctx, n) = do
                   , ("interactive", True)
                   , ("expanded", True)
                   ]
-       , id ("node" <> (Text.pack . show $ n))
-       , Right <$> onMouseDown
-       ]
-       [ text (Text.pack . show $ n)
-              -- <> " | "
-              -- <> (showIR $ Map.findWithDefault 0 IR (_bindings ctx))
-       ]
+             , id ("node" <> (Text.pack . show $ n))
+             , Right <$> onMouseDown
+             ]
+             [ text (Text.pack . show $ n)]
   case ev of
     Left e  -> node args
     Right e -> do
       log D $ "Click on node " <> Text.pack (show n)
-      liftIO . atomically $ writeTQueue (_activeNodeQueue ?ide) n
-      -- log D $ "Wrote nodeid " <> Text.pack (show n) <> " into queue"
-      log D =<< Text.pack . show <$>
-        (liftIO . atomically . flushTQueue $ _activeNodeQueue ?ide)
+      liftIO . atomically $
+        writeTQueue (_activeNodeQueue ?ide) n
+      log D $ "Active node changed to " <> Text.pack (show n)
       node args
 
 children :: Int -> [Widget HTML a] -> Widget HTML a

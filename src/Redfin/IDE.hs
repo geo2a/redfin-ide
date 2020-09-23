@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -44,6 +45,8 @@ import           Redfin.IDE.Types
 import qualified ISA.Example.Add               as Example
 import qualified ISA.Example.Sum               as ExampleSum
 
+import qualified Debug.Trace                   as Debugger
+
 topWidget :: Steps -> App a
 topWidget steps = do
   steps' <-
@@ -87,7 +90,7 @@ traceWidget steps = widget
   where
     widget :: Widget HTML a
     widget = do
-      trace <- liftIO $ readTVarIO (_trace ?ide)
+      trace <- liftIO . atomically $ readTMVar (_trace ?ide)
       div [classList [ ("pane", True)
                      , ("middlepane", True)
                      ]
@@ -97,47 +100,76 @@ traceWidget steps = widget
 -- | Display the state of the selected node
 --   TODO: Maybe invalidate the state widget after changing the amount of steps,
 --   since nodes can have different ids in different partial traces
+-- stateWidget :: App a
+-- stateWidget = do
+--   widget 0
+--   where
+--     widget :: NodeId -> Widget HTML a
+--     widget n = do
+--       trace <- liftIO $ readTVarIO (_trace ?ide)
+--       let displayed =
+--             div [classList [ ("pane", True)
+--                            , ("rightpane", True)
+--                            ]
+--                 ]
+--                 [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
+--                 , displayContext (lookup n trace)
+--                 ]
+--           fetched = liftIO . atomically $ readTQueue (_activeNodeQueue ?ide)
+--             -- xs <- flushTQueue (_activeNodeQueue ?ide)
+--             -- case xs of
+--             --   []    -> retry
+--             --   (x:_) -> pure x
+--             -- readTQueue (_activeNodeQueue ?ide)
+--       Old <$> displayed <|> New <$> fetched >>=
+--         \case Old _  -> Debugger.trace "I'm old!!" $ widget n
+--               New n' -> do
+--                 Debugger.trace "I'm new!!" $ widget n'
 stateWidget :: App a
-stateWidget =
+stateWidget = do
   widget 0
   where
     widget :: NodeId -> Widget HTML a
-    widget n = do
-      trace <- liftIO $ readTVarIO (_trace ?ide)
-      let displayed =
-            div [classList [ ("pane", True)
-                                  , ("rightpane", True)
-                                  ]
-                       ]
-                       [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
-                       , displayContext (lookup n trace)
-                       ]
-          fetched = (liftIO $ atomically $ peekTQueue (_activeNodeQueue ?ide))
+    widget !n = do
+      log D $ "displaying state for node " <> Text.pack (show n)
+      trace <- liftIO . atomically $ readTMVar (_trace ?ide)
 
-      log D "State widget rendered"
-      Old <$> displayed <|> New <$> fetched >>=
-        \case Old _  -> widget n
-              New n' -> widget n'
+      ev <- div [classList [ ("pane", True)
+                           , ("rightpane", True)
+                           ]
+                ]
+                [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
+                , displayContext (lookup n trace)
+                , Right <$> (liftIO . atomically $ readTQueue (_activeNodeQueue ?ide))
+                ]
+      case ev of
+        Left _   -> widget n
+        Right n' -> widget n'
+      -- Old <$> displayed <|> New <$> fetched >>=
+      --   \case Old _  -> Debugger.trace "I'm old!!" $ widget n
+      --         New n' -> do
+      --           Debugger.trace "I'm new!!" $ widget n'
 
 
 
 -- | Cook the initial IDE state
 mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
 mkIDE ex logger = do
-  nodeIdQueue <- liftIO $ newTQueueIO
+  nodeIdQueue <- liftIO newTQueueIO
+  atomically $ writeTQueue nodeIdQueue 0
   stepsVar  <- liftIO $ newTMVarIO 0
   exampleVar <- liftIO $ newTMVarIO ex
 
   case ex of
     ExampleAdd   -> do
-      traceVar  <- liftIO $ newTVarIO (Example.symexecTrace 0)
+      traceVar  <- liftIO $ newTMVarIO (Example.symexecTrace 0)
       pure (IDEState traceVar stepsVar nodeIdQueue
              exampleVar
              Example.addLowLevel
              Example.symexecTrace
              logger)
     ExampleSum   -> do
-      traceVar  <- liftIO $ newTVarIO (runModel 0 ExampleSum.initContext)
+      traceVar  <- liftIO $ newTMVarIO (runModel 0 ExampleSum.initContext)
       pure (IDEState traceVar stepsVar nodeIdQueue
              exampleVar
              ExampleSum.sumArrayLowLevel
@@ -179,12 +211,19 @@ elimEvent = \case
   ExampleChanged ex -> do
     log D $ "Example changed to " <> Text.pack (show ex)
     let ide' = swapExample ?ide ex
-    liftIO . atomically $ writeTVar (_trace ide') (_runSymExec ide' 0)
+    liftIO . atomically $ do
+      _ <- flushTQueue (_activeNodeQueue ide')
+      writeTQueue (_activeNodeQueue ide') 0
+      swapTMVar (_trace ide') (_runSymExec ide' 0)
     pure ide'
-  StepsChanged steps -> do
+  StepsChanged !steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
     -- putTMVar (_steps ide) steps
-    liftIO . atomically $ writeTVar (_trace ?ide) (_runSymExec ?ide steps)
+    liftIO . atomically $ do
+      _ <- flushTQueue (_activeNodeQueue ?ide)
+      writeTQueue (_activeNodeQueue ?ide) 0
+      swapTMVar (_trace ?ide) (_runSymExec ?ide steps)
+    log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     pure ?ide
 
 ideWidget :: App a

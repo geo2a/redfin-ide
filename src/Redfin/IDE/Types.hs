@@ -41,7 +41,7 @@ data Example = ExampleAdd
              deriving (Show, Eq)
 
 data IDEState =
-  IDEState { _trace           :: TVar (Trace Context)
+  IDEState { _trace           :: TMVar (Trace Context)
            , _steps           :: TMVar Steps
            , _activeNodeQueue :: TQueue NodeId
            , _activeExample   :: TMVar Example
