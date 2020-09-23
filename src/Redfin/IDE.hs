@@ -54,7 +54,9 @@ topWidget steps = do
                    , ("toppane", True)
                    ]
         ]
-        [Old <$> examplesWidget, New <$> stepsWidget steps]
+        [ Old <$> examplesWidget
+        , New <$> stepsWidget steps
+        ]
   case steps' of
     Old s -> topWidget s
     New s' -> do
@@ -97,34 +99,6 @@ traceWidget steps = widget
           ]
           [pre [] [htmlTrace trace]]
 
--- | Display the state of the selected node
---   TODO: Maybe invalidate the state widget after changing the amount of steps,
---   since nodes can have different ids in different partial traces
--- stateWidget :: App a
--- stateWidget = do
---   widget 0
---   where
---     widget :: NodeId -> Widget HTML a
---     widget n = do
---       trace <- liftIO $ readTVarIO (_trace ?ide)
---       let displayed =
---             div [classList [ ("pane", True)
---                            , ("rightpane", True)
---                            ]
---                 ]
---                 [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
---                 , displayContext (lookup n trace)
---                 ]
---           fetched = liftIO . atomically $ readTQueue (_activeNodeQueue ?ide)
---             -- xs <- flushTQueue (_activeNodeQueue ?ide)
---             -- case xs of
---             --   []    -> retry
---             --   (x:_) -> pure x
---             -- readTQueue (_activeNodeQueue ?ide)
---       Old <$> displayed <|> New <$> fetched >>=
---         \case Old _  -> Debugger.trace "I'm old!!" $ widget n
---               New n' -> do
---                 Debugger.trace "I'm new!!" $ widget n'
 stateWidget :: App a
 stateWidget = do
   widget 0
@@ -145,10 +119,6 @@ stateWidget = do
       case ev of
         Left _   -> widget n
         Right n' -> widget n'
-      -- Old <$> displayed <|> New <$> fetched >>=
-      --   \case Old _  -> Debugger.trace "I'm old!!" $ widget n
-      --         New n' -> do
-      --           Debugger.trace "I'm new!!" $ widget n'
 
 
 
@@ -198,7 +168,6 @@ examplesWidget = do
   examplesWidget
   where exampleButton ex =
           li [] [button [ex <$ onClick] [text (Text.pack $ show ex)]]
-  -- pure e
 
 data Event = Proceed
            | ExampleChanged Example
@@ -211,28 +180,29 @@ elimEvent = \case
   ExampleChanged ex -> do
     log D $ "Example changed to " <> Text.pack (show ex)
     let ide' = swapExample ?ide ex
-    liftIO . atomically $ do
-      _ <- flushTQueue (_activeNodeQueue ide')
-      writeTQueue (_activeNodeQueue ide') 0
+    oldQueue <- liftIO . atomically $ do
       swapTMVar (_trace ide') (_runSymExec ide' 0)
+      cleanupNodeQueue ide'
+    log D $ "Flushed node queue; contents: " <> Text.pack (show oldQueue)
     pure ide'
-  StepsChanged !steps -> do
+  StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
-    -- putTMVar (_steps ide) steps
-    liftIO . atomically $ do
-      _ <- flushTQueue (_activeNodeQueue ?ide)
-      writeTQueue (_activeNodeQueue ?ide) 0
+    oldQueue <- liftIO . atomically $ do
       swapTMVar (_trace ?ide) (_runSymExec ?ide steps)
+      cleanupNodeQueue ?ide
+    log D $ "Flushed node queue; contents: " <> Text.pack (show oldQueue)
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     pure ?ide
+  where cleanupNodeQueue :: IDEState -> STM [NodeId]
+        cleanupNodeQueue ide = do
+          xs <- flushTQueue (_activeNodeQueue ide)
+          writeTQueue (_activeNodeQueue ide) 0
+          pure xs
 
 ideWidget :: App a
 ideWidget =
-  -- e <- examplesWidget
-  -- e <- pure ex <|> (liftIO . atomically . takeTMVar $ _activeExample initialState)
   (\ide' -> let ?ide = ide' in ideWidget) =<< elimEvent =<<
     MultiAlternative.orr
-      -- . map ($ initialState) $
       [ Proceed <$ topWidget 0
       , Proceed <$ sourceWidget
       , Proceed <$ traceWidget 0
@@ -240,5 +210,4 @@ ideWidget =
 
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
-      -- , Left <$> (liftIO . atomically . takeTMVar $ _steps ide)
       ]
