@@ -11,8 +11,9 @@ module Redfin.IDE
   , mkIDE
   ) where
 
-import           Colog                         (pattern D, HasLog (..),
-                                                pattern I, LogAction, Message)
+import           Colog                         (pattern D, pattern E,
+                                                HasLog (..), pattern I,
+                                                LogAction, Message)
 import           Concur.Core
 import           Concur.Core.Types
 import           Concur.Replica                hiding (id)
@@ -92,7 +93,7 @@ traceWidget steps = widget
   where
     widget :: Widget HTML a
     widget = do
-      trace <- liftIO . atomically $ readTMVar (_trace ?ide)
+      trace <- liftIO $ readTVarIO (_trace ?ide)
       div [classList [ ("pane", True)
                      , ("middlepane", True)
                      ]
@@ -106,7 +107,7 @@ stateWidget = do
     widget :: NodeId -> Widget HTML a
     widget !n = do
       log D $ "displaying state for node " <> Text.pack (show n)
-      trace <- liftIO . atomically $ readTMVar (_trace ?ide)
+      trace <- liftIO $ readTVarIO (_trace ?ide)
 
       ev <- div [classList [ ("pane", True)
                            , ("rightpane", True)
@@ -132,15 +133,15 @@ mkIDE ex logger = do
 
   case ex of
     ExampleAdd   -> do
-      traceVar  <- liftIO $ newTMVarIO (Example.symexecTrace 0)
-      pure (IDEState traceVar stepsVar nodeIdQueue
+      traceVar  <- liftIO $ newTVarIO (Example.symexecTrace 0)
+      pure (IDEState traceVar stepsVar 0 nodeIdQueue
              exampleVar
              Example.addLowLevel
              Example.symexecTrace
              logger)
     ExampleSum   -> do
-      traceVar  <- liftIO $ newTMVarIO (runModel 0 ExampleSum.initContext)
-      pure (IDEState traceVar stepsVar nodeIdQueue
+      traceVar  <- liftIO $ newTVarIO (runModel 0 ExampleSum.initContext)
+      pure (IDEState traceVar stepsVar 0 nodeIdQueue
              exampleVar
              ExampleSum.sumArrayLowLevel
              (\s -> runModel s ExampleSum.initContext)
@@ -181,23 +182,20 @@ elimEvent = \case
     log D $ "Example changed to " <> Text.pack (show ex)
     let ide' = swapExample ?ide ex
     oldQueue <- liftIO . atomically $ do
-      swapTMVar (_trace ide') (_runSymExec ide' 0)
-      cleanupNodeQueue ide'
-    log D $ "Flushed node queue; contents: " <> Text.pack (show oldQueue)
+      writeTVar (_trace ide') (_runSymExec ide' 0)
+      cleanupQueues ide'
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
     oldQueue <- liftIO . atomically $ do
-      swapTMVar (_trace ?ide) (_runSymExec ?ide steps)
-      cleanupNodeQueue ?ide
-    log D $ "Flushed node queue; contents: " <> Text.pack (show oldQueue)
+      writeTVar (_trace ?ide) (_runSymExec ?ide steps)
+      cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     pure ?ide
-  where cleanupNodeQueue :: IDEState -> STM [NodeId]
-        cleanupNodeQueue ide = do
-          xs <- flushTQueue (_activeNodeQueue ide)
+  where cleanupQueues :: IDEState -> STM ()
+        cleanupQueues ide =
+          flushTQueue (_activeNodeQueue ide) *>
           writeTQueue (_activeNodeQueue ide) 0
-          pure xs
 
 ideWidget :: App a
 ideWidget =
