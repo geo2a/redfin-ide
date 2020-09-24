@@ -32,6 +32,7 @@ import qualified Data.Text.Lazy.Builder        as Text
 import qualified Data.Text.Read                as Text
 import           Prelude                       hiding (div, log, lookup, span)
 import           Replica.VDOM.Render           as Render
+import           Text.Read                     (readEither)
 
 import           ISA.Assembly                  (Script, assemble)
 import           ISA.Backend.Symbolic.List.Run (runModel)
@@ -48,30 +49,35 @@ import qualified ISA.Example.Sum               as ExampleSum
 
 import qualified Debug.Trace                   as Debugger
 
-topWidget :: Steps -> App a
-topWidget steps = do
+topWidget :: App a
+topWidget = do
   steps' <-
     div [classList [ ("pane", True)
                    , ("toppane", True)
                    ]
         ]
-        [ Old <$> examplesWidget
-        , New <$> stepsWidget steps
+        [ examplesWidget
+        , stepsWidget (Right (_stepsVal ?ide))
         ]
-  case steps' of
-    Old s -> topWidget s
-    New s' -> do
-      liftIO . atomically $ putTMVar (_steps ?ide) s'
-      topWidget s'
+  when (steps' /= (_stepsVal ?ide)) $
+      liftIO . atomically $ putTMVar (_steps ?ide) steps'
+  topWidget
 
 -- | Specify the number of symbolic execution steps
-stepsWidget :: Steps -> Widget HTML Steps
-stepsWidget s =
-  read . Text.unpack . targetValue . target <$>
-    div []
-      [ text ("Symbolic execution steps: " <> Text.pack (show s))
-      , input [placeholder "Change", onChange, autofocus True]
-      ]
+stepsWidget :: Either Text Steps -> Widget HTML Steps
+stepsWidget s = do
+  let msg = either (const "") (Text.pack . show) s
+  txt <- targetValue . target <$>
+         div []
+             [ text ("Symbolic execution steps: ")
+             , input [ placeholder msg
+                     , value ""
+                     , onChange, autofocus True]
+             , either (const $ text "Error: invalid input") (const empty) s
+             ]
+  case (readEither . Text.unpack $ txt) of
+    Left err -> stepsWidget (Left (Text.pack err))
+    Right x  -> pure x
 
 -- | Display the assembly source code of the program
 sourceWidget :: App a
@@ -87,9 +93,8 @@ sourceWidget =
 -- | Display the symbolic execution trace
 --   Clicking on a node will display the node's
 --   state in the state widget on the very right
-traceWidget :: Steps
-            -> App a
-traceWidget steps = widget
+traceWidget :: App a
+traceWidget = widget
   where
     widget :: Widget HTML a
     widget = do
@@ -120,8 +125,6 @@ stateWidget = do
       case ev of
         Left _   -> widget n
         Right n' -> widget n'
-
-
 
 -- | Cook the initial IDE state
 mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
@@ -191,21 +194,23 @@ elimEvent = \case
       writeTVar (_trace ?ide) (_runSymExec ?ide steps)
       cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
-    pure ?ide
+    pure (?ide {_stepsVal = steps})
   where cleanupQueues :: IDEState -> STM ()
         cleanupQueues ide =
           flushTQueue (_activeNodeQueue ide) *>
           writeTQueue (_activeNodeQueue ide) 0
 
 ideWidget :: App a
-ideWidget =
-  (\ide' -> let ?ide = ide' in ideWidget) =<< elimEvent =<<
-    MultiAlternative.orr
-      [ Proceed <$ topWidget 0
+ideWidget = do
+  event <-  MultiAlternative.orr
+      [ Proceed <$ topWidget
       , Proceed <$ sourceWidget
-      , Proceed <$ traceWidget 0
+      , Proceed <$ traceWidget
       , Proceed <$ stateWidget
 
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
       ]
+  ide' <- elimEvent event
+  let ?ide = ide' in
+    ideWidget
