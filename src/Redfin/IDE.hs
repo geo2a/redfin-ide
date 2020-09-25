@@ -68,7 +68,7 @@ stepsWidget :: Either Text Steps -> Widget HTML Steps
 stepsWidget s = do
   let msg = either (const "") (Text.pack . show) s
   txt <- targetValue . target <$>
-         div []
+         div [classList [("stepsWidget", True)]]
              [ text ("Symbolic execution steps: ")
              , input [ placeholder msg
                      , value ""
@@ -138,14 +138,14 @@ mkIDE ex logger = do
     ExampleAdd   -> do
       traceVar  <- liftIO $ newTVarIO (Example.symexecTrace 0)
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
-             exampleVar
+             exampleVar ex
              Example.addLowLevel
              Example.symexecTrace
              logger)
     ExampleSum   -> do
       traceVar  <- liftIO $ newTVarIO (runModel 0 ExampleSum.initContext)
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
-             exampleVar
+             exampleVar ex
              ExampleSum.sumArrayLowLevel
              (\s -> runModel s ExampleSum.initContext)
              logger)
@@ -156,22 +156,29 @@ swapExample :: IDEState -> Example -> IDEState
 swapExample ide = \case
   ExampleAdd -> ide { _source = Example.addLowLevel
                     , _runSymExec = Example.symexecTrace
+                    , _activeExampleVal = ExampleAdd
                     }
   ExampleSum -> ide { _source = ExampleSum.sumArrayLowLevel
                     , _runSymExec = \s -> runModel s ExampleSum.initContext
+                    , _activeExampleVal = ExampleSum
                     }
 
 examplesWidget :: App a
 examplesWidget = do
-  e <- ul [] [ exampleButton ExampleAdd
-             , exampleButton ExampleSum
-             -- , li [] [span [] [button [ExampleGCD <$ onClick] [text "GCD"]]]
-             -- , li [] [span [] [button [ExampleMotor <$ onClick] [text "Motor"]]]
-             ]
+  log I "Example widget initialised"
+  e <- ul [classList [("examplesWidget", True)]]
+          [ exampleButton ExampleAdd
+          , exampleButton ExampleSum
+          -- , li [] [span [] [button [ExampleGCD <$ onClick] [text "GCD"]]]
+          -- , li [] [span [] [button [ExampleMotor <$ onClick] [text "Motor"]]]
+          ]
   liftIO . atomically $ putTMVar (_activeExample ?ide) e
   examplesWidget
   where exampleButton ex =
-          li [] [button [ex <$ onClick] [text (Text.pack $ show ex)]]
+          li [] [a [ classList [ ("exampleButton", True)
+                               , ("activeExample", ex == _activeExampleVal ?ide)]
+                   , ex <$ onClick]
+                   [text (Text.pack $ show ex)]]
 
 data Event = Proceed
            | ExampleChanged Example
