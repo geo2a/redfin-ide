@@ -157,10 +157,12 @@ swapExample ide = \case
   ExampleAdd -> ide { _source = Example.addLowLevel
                     , _runSymExec = Example.symexecTrace
                     , _activeExampleVal = ExampleAdd
+                    , _stepsVal = 0
                     }
   ExampleSum -> ide { _source = ExampleSum.sumArrayLowLevel
                     , _runSymExec = \s -> runModel s ExampleSum.initContext
                     , _activeExampleVal = ExampleSum
+                    , _stepsVal = 0
                     }
 
 examplesWidget :: App a
