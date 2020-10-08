@@ -1,10 +1,12 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE IncoherentInstances   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TupleSections         #-}
 
 module Redfin.IDE
   ( ideWidget
@@ -18,14 +20,20 @@ import           Concur.Core
 import           Concur.Core.Types
 import           Concur.Replica                hiding (id)
 import qualified Concur.Replica.DOM.Events     as P
-import           Control.Applicative           (empty, (<|>))
+import           Control.Applicative           (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class        (liftIO)
 import           Control.Monad.Reader
 import qualified Control.MultiAlternative      as MultiAlternative
 import           Control.ShiftMap
 import qualified Data.Aeson                    as A
+import           Data.Foldable                 (toList)
 import           Data.Functor                  (void)
+import qualified Data.Map.Strict               as Map
+import           Data.Sequence                 (Seq, (<|))
+import qualified Data.Sequence                 as Seq
+import           Data.Set                      (Set)
+import qualified Data.Set                      as Set
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 import qualified Data.Text.Lazy.Builder        as Text
@@ -36,7 +44,9 @@ import           Text.Read                     (readEither)
 
 import           ISA.Assembly                  (Script, assemble)
 import           ISA.Backend.Symbolic.List.Run (runModel)
+import           ISA.Types
 import           ISA.Types.Instruction.Decode
+import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.Trace      hiding (htmlTrace)
 
@@ -79,16 +89,100 @@ stepsWidget s = do
     Left err -> stepsWidget (Left (Text.pack err))
     Right x  -> pure x
 
--- | Display the assembly source code of the program
-sourceWidget :: App a
-sourceWidget =
+leftPane :: App a
+leftPane =
   div [classList [ ("pane", True)
                  , ("leftpane", True)
                  ]
       ]
-      [ol [classList [("sourceCode", True)]] (map (li [] . (:[]) . text) src)]
+      [ sourceWidget
+      , initStateWidget
+      ]
+
+-- | Display the assembly source code of the program
+sourceWidget :: App a
+sourceWidget =
+  ol [classList [("sourceCode", True)]] (map (li [] . (:[]) . text) src)
   where src :: [Text.Text]
         src = map (Text.pack . show . snd) $ assemble (_source ?ide)
+
+-- | Run widgets in parallel and wait for all to produce a value
+--   OR exit early if the LAST one returns
+--   TODO: this is a sub optimal piece of code which might brake and will need refactoring
+--   Partially adopted from:
+--   https://github.com/purescript-concur/purescript-concur-core/blob/253be02725eac8f3515f75a4542602301d24a749/src/Concur/Core/Types.purs#L156
+joinOrLast :: [Widget HTML a] -> Widget HTML [a]
+joinOrLast = (toList <$>) . andd' . Seq.fromList
+  where
+    andd' :: Seq (Widget HTML a) -> Widget HTML (Seq a)
+    andd' ws = go ws Set.empty
+      where
+        go xs is = do
+          (i, e) <- Seq.foldrWithIndex (\i w r -> (fmap (i,) w) <|> r) empty ws
+          let xs' = Seq.deleteAt i xs
+              is' = Set.insert i is
+          if
+            -- Seq.sort is' >= Seq.fromList [0..length ws - 1]
+            -- &&
+            Set.member (length ws - 1) is'
+            -- (Prelude.not . Seq.null $ Seq.filter (== length ws - 1) is')
+            then pure (Seq.singleton e)
+            else do
+              rest <- go xs' is'
+              pure $ Seq.insertAt i e rest
+
+initStateWidget :: App a
+initStateWidget = do
+  xs <- keyValsWidget Map.empty
+  -- log I $ Text.pack (show xs)
+  initStateWidget
+
+keyValsWidget :: Map.Map Key Text -> App (Map.Map Key Text)
+keyValsWidget st =
+  go st
+  -- -- button [] [text "Initialise"] <|> go keys
+  where
+    go st = do
+      xs <- -- ul [classList [("initState", True)]]
+        joinOrLast $
+               [ Right <$> div [] [keyInp (Reg R0)]
+               , Right <$> div [] [keyInp (Reg R1)]
+               , Left () <$ button [onClick] [text "Initialise"]
+               ]
+      log I $ Text.pack (show xs)
+      go st
+      -- go (foldl (\acc (key, value) -> Map.insert key value acc) st xs)
+
+    keyInp :: Key -> Widget HTML (Key, Text)
+    keyInp key =
+      let keyTxt = Text.pack (show key) in
+      text (keyTxt <> " = ") <|>
+      input [ placeholder (Text.pack (show key))
+            , value ""
+            , (key,) . targetValue . target <$> onChange
+            ]
+
+
+-- initStateWidget :: [Key] -> App a
+-- initStateWidget keys =
+--   button [] [text "Initialise"] <|> go keys
+--   where
+--     go keys = do
+--       xs <- ul [classList [("initState", True)]]
+--                [ li [] [keyInp (Reg R0)]
+--                , button [const () <$ onClick] [text "Initialise"]
+--                ]
+
+--       go keys
+
+--     keyInp :: Key -> Widget HTML Sym
+--     keyInp         p key =
+--       let keyTxt = Text.pack (show key) in
+--       text (keyTxt <> " = ") <|>
+--       input [ placeholder (Text.pack (show key))
+--             , value ""
+--             , const 0 <$> onChange
+--             ]
 
 -- | Display the symbolic execution trace
 --   Clicking on a node will display the node's
@@ -213,7 +307,7 @@ ideWidget :: App a
 ideWidget = do
   event <-  MultiAlternative.orr
       [ Proceed <$ topWidget
-      , Proceed <$ sourceWidget
+      , Proceed <$ leftPane
       , Proceed <$ traceWidget
       , Proceed <$ stateWidget
 
