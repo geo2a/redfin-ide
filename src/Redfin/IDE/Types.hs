@@ -24,6 +24,7 @@ import           GHC.Stack                  (HasCallStack, callStack,
                                              withFrozenCallStack)
 
 import           ISA.Assembly
+import           ISA.Types
 import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.Trace
 
@@ -31,6 +32,17 @@ import           ISA.Types.Symbolic.Trace
 data Contents a b = Old a
                   | New b
                   deriving (Show, Eq)
+
+-- | A pair of a 'ISA.Types.Key' and a value
+--   Eq and Ord instances only consider the key
+data WithKey a = MkWithKey Key a
+  deriving Show
+
+instance Eq (WithKey a) where
+  (MkWithKey k1 _) == (MkWithKey k2 _) = k1 == k2
+
+instance Ord (WithKey a) where
+  (MkWithKey k1 _) <= (MkWithKey k2 _) = k1 <= k2
 
 type Steps = Int
 

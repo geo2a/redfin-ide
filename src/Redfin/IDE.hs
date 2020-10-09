@@ -30,7 +30,7 @@ import qualified Data.Aeson                    as A
 import           Data.Foldable                 (toList)
 import           Data.Functor                  (void)
 import qualified Data.Map.Strict               as Map
-import           Data.Sequence                 (Seq, (<|))
+import           Data.Sequence                 (Seq, (<|), (|>))
 import qualified Data.Sequence                 as Seq
 import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
@@ -111,8 +111,8 @@ sourceWidget =
 --   TODO: this is a sub optimal piece of code which might brake and will need refactoring
 --   Partially adopted from:
 --   https://github.com/purescript-concur/purescript-concur-core/blob/253be02725eac8f3515f75a4542602301d24a749/src/Concur/Core/Types.purs#L156
-joinOrLast :: [Widget HTML a] -> Widget HTML [a]
-joinOrLast = (toList <$>) . andd' . Seq.fromList
+joinOrLast :: Ord a => [Widget HTML a] -> Widget HTML (Set a)
+joinOrLast = (Set.fromList . toList <$>) . andd' . Seq.fromList
   where
     andd' :: Seq (Widget HTML a) -> Widget HTML (Seq a)
     andd' ws = go ws Set.empty
@@ -122,14 +122,11 @@ joinOrLast = (toList <$>) . andd' . Seq.fromList
           let xs' = Seq.deleteAt i xs
               is' = Set.insert i is
           if
-            -- Seq.sort is' >= Seq.fromList [0..length ws - 1]
-            -- &&
             Set.member (length ws - 1) is'
-            -- (Prelude.not . Seq.null $ Seq.filter (== length ws - 1) is')
             then pure (Seq.singleton e)
             else do
               rest <- go xs' is'
-              pure $ Seq.insertAt i e rest
+              pure $ e <| rest
 
 initStateWidget :: App a
 initStateWidget = do
@@ -140,7 +137,6 @@ initStateWidget = do
 keyValsWidget :: Map.Map Key Text -> App (Map.Map Key Text)
 keyValsWidget st =
   go st
-  -- -- button [] [text "Initialise"] <|> go keys
   where
     go st = do
       xs <- -- ul [classList [("initState", True)]]
@@ -151,38 +147,15 @@ keyValsWidget st =
                ]
       log I $ Text.pack (show xs)
       go st
-      -- go (foldl (\acc (key, value) -> Map.insert key value acc) st xs)
 
-    keyInp :: Key -> Widget HTML (Key, Text)
+    keyInp :: Key -> Widget HTML (WithKey Text)
     keyInp key =
       let keyTxt = Text.pack (show key) in
       text (keyTxt <> " = ") <|>
       input [ placeholder (Text.pack (show key))
             , value ""
-            , (key,) . targetValue . target <$> onChange
+            , MkWithKey key . targetValue . target <$> onChange
             ]
-
-
--- initStateWidget :: [Key] -> App a
--- initStateWidget keys =
---   button [] [text "Initialise"] <|> go keys
---   where
---     go keys = do
---       xs <- ul [classList [("initState", True)]]
---                [ li [] [keyInp (Reg R0)]
---                , button [const () <$ onClick] [text "Initialise"]
---                ]
-
---       go keys
-
---     keyInp :: Key -> Widget HTML Sym
---     keyInp         p key =
---       let keyTxt = Text.pack (show key) in
---       text (keyTxt <> " = ") <|>
---       input [ placeholder (Text.pack (show key))
---             , value ""
---             , const 0 <$> onChange
---             ]
 
 -- | Display the symbolic execution trace
 --   Clicking on a node will display the node's
