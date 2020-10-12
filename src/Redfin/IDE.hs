@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE IncoherentInstances   #-}
@@ -13,54 +12,55 @@ module Redfin.IDE
   , mkIDE
   ) where
 
-import           Colog                         (pattern D, pattern E,
-                                                HasLog (..), pattern I,
-                                                LogAction, Message)
+import           Colog                          (pattern D, pattern E,
+                                                 HasLog (..), pattern I,
+                                                 LogAction, Message)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                hiding (id)
-import qualified Concur.Replica.DOM.Events     as P
-import           Control.Applicative           (Alternative, empty, (<|>))
+import           Concur.Replica                 hiding (id)
+import qualified Concur.Replica.DOM.Events      as P
+import           Control.Applicative            (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
-import           Control.Monad.IO.Class        (liftIO)
+import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative      as MultiAlternative
+import qualified Control.MultiAlternative       as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                    as A
-import           Data.Foldable                 (toList)
-import           Data.Functor                  (void)
-import qualified Data.Map.Strict               as Map
-import           Data.Sequence                 (Seq, (<|), (|>))
-import qualified Data.Sequence                 as Seq
-import           Data.Set                      (Set)
-import qualified Data.Set                      as Set
-import           Data.Text                     (Text)
-import qualified Data.Text                     as Text
-import qualified Data.Text.Lazy.Builder        as Text
-import qualified Data.Text.Read                as Text
-import           Prelude                       hiding (div, log, lookup, span)
-import           Replica.VDOM.Render           as Render
-import           Text.Read                     (readEither)
+import qualified Data.Aeson                     as A
+import           Data.Either                    (rights)
+import           Data.Functor                   (void)
+import qualified Data.Map.Strict                as Map
+import           Data.Text                      (Text)
+import qualified Data.Text                      as Text
+import qualified Data.Text.Lazy.Builder         as Text
+import qualified Data.Text.Read                 as Text
+import           Prelude                        hiding (div, log, lookup, span)
+import           Replica.VDOM.Render            as Render
+import           Text.Read                      (readEither)
 
-import           ISA.Assembly                  (Script, assemble)
-import           ISA.Backend.Symbolic.List.Run (runModel)
+import           ISA.Backend.Symbolic.List.Run  (runModel)
+import qualified ISA.Example.Add                as Example
+import qualified ISA.Example.Sum                as ExampleSum
 import           ISA.Types
 import           ISA.Types.Instruction.Decode
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
-import           ISA.Types.Symbolic.Trace      hiding (htmlTrace)
+import           ISA.Types.Symbolic.Trace       hiding (htmlTrace)
 
 import           Redfin.IDE.State
-import           Redfin.IDE.Trace              (htmlTrace)
+import           Redfin.IDE.Trace               (htmlTrace)
 import           Redfin.IDE.Types
+import           Redfin.IDE.Widget
+import           Redfin.IDE.Widget.Examples
+import           Redfin.IDE.Widget.InitialState
+import           Redfin.IDE.Widget.Source
+import           Redfin.IDE.Widget.State
+import           Redfin.IDE.Widget.Steps
+import           Redfin.IDE.Widget.Trace
 
-import qualified ISA.Example.Add               as Example
-import qualified ISA.Example.Sum               as ExampleSum
+import qualified Debug.Trace                    as Debugger
 
-import qualified Debug.Trace                   as Debugger
-
-topWidget :: App a
-topWidget = do
+topPane :: App a
+topPane = do
   steps' <-
     div [classList [ ("pane", True)
                    , ("toppane", True)
@@ -71,23 +71,7 @@ topWidget = do
         ]
   when (steps' /= (_stepsVal ?ide)) $
       liftIO . atomically $ putTMVar (_steps ?ide) steps'
-  topWidget
-
--- | Specify the number of symbolic execution steps
-stepsWidget :: Either Text Steps -> Widget HTML Steps
-stepsWidget s = do
-  let msg = either (const "") (Text.pack . show) s
-  txt <- targetValue . target <$>
-         div [classList [("stepsWidget", True)]]
-             [ text ("Symbolic execution steps: ")
-             , input [ placeholder msg
-                     , value ""
-                     , onChange, autofocus True]
-             , either (const $ text "Error: invalid input") (const empty) s
-             ]
-  case (readEither . Text.unpack $ txt) of
-    Left err -> stepsWidget (Left (Text.pack err))
-    Right x  -> pure x
+  topPane
 
 leftPane :: App a
 leftPane =
@@ -98,100 +82,6 @@ leftPane =
       [ sourceWidget
       , initStateWidget
       ]
-
--- | Display the assembly source code of the program
-sourceWidget :: App a
-sourceWidget =
-  ol [classList [("sourceCode", True)]] (map (li [] . (:[]) . text) src)
-  where src :: [Text.Text]
-        src = map (Text.pack . show . snd) $ assemble (_source ?ide)
-
--- | Run widgets in parallel and wait for all to produce a value
---   OR exit early if the LAST one returns
---   TODO: this is a sub optimal piece of code which might brake and will need refactoring
---   Partially adopted from:
---   https://github.com/purescript-concur/purescript-concur-core/blob/253be02725eac8f3515f75a4542602301d24a749/src/Concur/Core/Types.purs#L156
-joinOrLast :: Ord a => [Widget HTML a] -> Widget HTML (Set a)
-joinOrLast = (Set.fromList . toList <$>) . andd' . Seq.fromList
-  where
-    andd' :: Seq (Widget HTML a) -> Widget HTML (Seq a)
-    andd' ws = go ws Set.empty
-      where
-        go xs is = do
-          (i, e) <- Seq.foldrWithIndex (\i w r -> (fmap (i,) w) <|> r) empty ws
-          let xs' = Seq.deleteAt i xs
-              is' = Set.insert i is
-          if
-            Set.member (length ws - 1) is'
-            then pure (Seq.singleton e)
-            else do
-              rest <- go xs' is'
-              pure $ e <| rest
-
-initStateWidget :: App a
-initStateWidget = do
-  xs <- keyValsWidget Map.empty
-  -- log I $ Text.pack (show xs)
-  initStateWidget
-
-keyValsWidget :: Map.Map Key Text -> App (Map.Map Key Text)
-keyValsWidget st =
-  go st
-  where
-    go st = do
-      xs <- -- ul [classList [("initState", True)]]
-        joinOrLast $
-               [ Right <$> div [] [keyInp (Reg R0)]
-               , Right <$> div [] [keyInp (Reg R1)]
-               , Left () <$ button [onClick] [text "Initialise"]
-               ]
-      log I $ Text.pack (show xs)
-      go st
-
-    keyInp :: Key -> Widget HTML (WithKey Text)
-    keyInp key =
-      let keyTxt = Text.pack (show key) in
-      text (keyTxt <> " = ") <|>
-      input [ placeholder (Text.pack (show key))
-            , value ""
-            , MkWithKey key . targetValue . target <$> onChange
-            ]
-
--- | Display the symbolic execution trace
---   Clicking on a node will display the node's
---   state in the state widget on the very right
-traceWidget :: App a
-traceWidget = widget
-  where
-    widget :: Widget HTML a
-    widget = do
-      trace <- liftIO $ readTVarIO (_trace ?ide)
-      div [classList [ ("pane", True)
-                     , ("middlepane", True)
-                     ]
-          ]
-          [pre [] [htmlTrace trace]]
-
-stateWidget :: App a
-stateWidget = do
-  widget 0
-  where
-    widget :: NodeId -> Widget HTML a
-    widget !n = do
-      log D $ "displaying state for node " <> Text.pack (show n)
-      trace <- liftIO $ readTVarIO (_trace ?ide)
-
-      ev <- div [classList [ ("pane", True)
-                           , ("rightpane", True)
-                           ]
-                ]
-                [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
-                , displayContext (lookup n trace)
-                , Right <$> (liftIO . atomically $ readTQueue (_activeNodeQueue ?ide))
-                ]
-      case ev of
-        Left _   -> widget n
-        Right n' -> widget n'
 
 -- | Cook the initial IDE state
 mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
@@ -218,36 +108,6 @@ mkIDE ex logger = do
              logger)
     -- ExampleGCD   ->
     -- ExampleMotor ->
-
-swapExample :: IDEState -> Example -> IDEState
-swapExample ide = \case
-  ExampleAdd -> ide { _source = Example.addLowLevel
-                    , _runSymExec = Example.symexecTrace
-                    , _activeExampleVal = ExampleAdd
-                    , _stepsVal = 0
-                    }
-  ExampleSum -> ide { _source = ExampleSum.sumArrayLowLevel
-                    , _runSymExec = \s -> runModel s ExampleSum.initContext
-                    , _activeExampleVal = ExampleSum
-                    , _stepsVal = 0
-                    }
-
-examplesWidget :: App a
-examplesWidget = do
-  log I "Example widget initialised"
-  e <- ul [classList [("examplesWidget", True)]]
-          [ exampleButton ExampleAdd
-          , exampleButton ExampleSum
-          -- , li [] [span [] [button [ExampleGCD <$ onClick] [text "GCD"]]]
-          -- , li [] [span [] [button [ExampleMotor <$ onClick] [text "Motor"]]]
-          ]
-  liftIO . atomically $ putTMVar (_activeExample ?ide) e
-  examplesWidget
-  where exampleButton ex =
-          li [] [a [ classList [ ("exampleButton", True)
-                               , ("activeExample", ex == _activeExampleVal ?ide)]
-                   , ex <$ onClick]
-                   [text (Text.pack $ show ex)]]
 
 data Event = Proceed
            | ExampleChanged Example
@@ -278,8 +138,8 @@ elimEvent = \case
 
 ideWidget :: App a
 ideWidget = do
-  event <-  MultiAlternative.orr
-      [ Proceed <$ topWidget
+  event <- MultiAlternative.orr
+      [ Proceed <$ topPane
       , Proceed <$ leftPane
       , Proceed <$ traceWidget
       , Proceed <$ stateWidget
