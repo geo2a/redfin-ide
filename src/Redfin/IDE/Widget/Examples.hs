@@ -36,20 +36,22 @@ import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
 import           ISA.Backend.Symbolic.List.Run (runModel)
-import qualified ISA.Example.Add               as Example
-import qualified ISA.Example.Sum               as ExampleSum
+import qualified ISA.Example.Add               as EAdd
+import qualified ISA.Example.Sum               as ESum
 
 swapExample :: IDEState -> Example -> IDEState
 swapExample ide = \case
-  ExampleAdd -> ide { _source = Example.addLowLevel
-                    , _runSymExec = Example.symexecTrace
+  ExampleAdd -> ide { _source = EAdd.addLowLevel
+                    , _runSymExec = runModel
                     , _activeExampleVal = ExampleAdd
                     , _stepsVal = 0
+                    , _activeInitStateVal = EAdd.initCtx
                     }
-  ExampleSum -> ide { _source = ExampleSum.sumArrayLowLevel
-                    , _runSymExec = \s -> runModel s ExampleSum.initContext
+  ExampleSum -> ide { _source = ESum.sumArrayLowLevel
+                    , _runSymExec = runModel
                     , _activeExampleVal = ExampleSum
                     , _stepsVal = 0
+                    , _activeInitStateVal = ESum.initContext
                     }
 
 examplesWidget :: App a

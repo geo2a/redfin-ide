@@ -74,14 +74,21 @@ topPane = do
   topPane
 
 leftPane :: App a
-leftPane =
-  div [classList [ ("pane", True)
-                 , ("leftpane", True)
-                 ]
-      ]
-      [ sourceWidget
-      , initStateWidget
-      ]
+leftPane = do
+  newInitState <-
+    div [classList [ ("pane", True)
+                   , ("leftpane", True)
+                   ]
+        ]
+        [ sourceWidget
+        , initStateWidget (_activeInitStateVal ?ide)
+        ]
+  when (newInitState /= (_activeInitStateVal ?ide)) $
+    liftIO . atomically $ putTMVar (_activeInitState ?ide) newInitState
+  leftPane
+
+emptyCtx :: Context
+emptyCtx = MkContext Map.empty (SConst (CBool True))
 
 -- | Cook the initial IDE state
 mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
@@ -90,21 +97,24 @@ mkIDE ex logger = do
   atomically $ writeTQueue nodeIdQueue 0
   stepsVar  <- liftIO $ newTMVarIO 0
   exampleVar <- liftIO $ newTMVarIO ex
+  ctxVar <- liftIO $ newTMVarIO emptyCtx
 
   case ex of
     ExampleAdd   -> do
       traceVar  <- liftIO $ newTVarIO (Example.symexecTrace 0)
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
              exampleVar ex
+             ctxVar emptyCtx
              Example.addLowLevel
-             Example.symexecTrace
+             runModel
              logger)
     ExampleSum   -> do
       traceVar  <- liftIO $ newTVarIO (runModel 0 ExampleSum.initContext)
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
              exampleVar ex
+             ctxVar emptyCtx
              ExampleSum.sumArrayLowLevel
-             (\s -> runModel s ExampleSum.initContext)
+             runModel
              logger)
     -- ExampleGCD   ->
     -- ExampleMotor ->
@@ -112,6 +122,7 @@ mkIDE ex logger = do
 data Event = Proceed
            | ExampleChanged Example
            | StepsChanged Steps
+           | InitStateChanged Context
            deriving Show
 
 elimEvent :: Event -> App IDEState
@@ -121,16 +132,23 @@ elimEvent = \case
     log D $ "Example changed to " <> Text.pack (show ex)
     let ide' = swapExample ?ide ex
     oldQueue <- liftIO . atomically $ do
-      writeTVar (_trace ide') (_runSymExec ide' 0)
+      writeTVar (_trace ide') (_runSymExec ide' 0 (_activeInitStateVal ide'))
       cleanupQueues ide'
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
     oldQueue <- liftIO . atomically $ do
-      writeTVar (_trace ?ide) (_runSymExec ?ide steps)
+      writeTVar (_trace ?ide) (_runSymExec ?ide steps (_activeInitStateVal ?ide))
       cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     pure (?ide {_stepsVal = steps})
+  InitStateChanged ctx -> do
+    log D $ "Init state changed"
+    let ide' = ?ide {_activeInitStateVal = ctx, _stepsVal = 0}
+    oldQueue <- liftIO . atomically $ do
+      writeTVar (_trace ide') (_runSymExec ide' 0 (_activeInitStateVal ide'))
+      cleanupQueues ide'
+    pure ide'
   where cleanupQueues :: IDEState -> STM ()
         cleanupQueues ide =
           flushTQueue (_activeNodeQueue ide) *>
@@ -146,6 +164,7 @@ ideWidget = do
 
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
+      , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
       ]
   ide' <- elimEvent event
   let ?ide = ide' in
