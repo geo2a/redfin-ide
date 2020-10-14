@@ -76,7 +76,8 @@ keyValsWidget ctx =
     go ctx = do
       log D $ "Keys: " <> Text.pack (show $ Map.keys ctx)
       let inps = map keyInp (Map.assocs ctx)
-      xs <- div [classList [("initState", True)]] .
+      xs <- div [classList [ ("box", True)
+                           , ("initState", True)]] .
               (h3 [] [text "Initial State"]:) . (:[]) $
               fmap (map (\(MkWithKey k v) -> (k,v))) .
               fmap rights . joinOrLast $

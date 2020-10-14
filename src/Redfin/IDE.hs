@@ -68,10 +68,23 @@ topPane = do
         ]
         [ examplesWidget
         , stepsWidget (Right (_stepsVal ?ide))
+        , smtWidget
         ]
   when (steps' /= (_stepsVal ?ide)) $
       liftIO . atomically $ putTMVar (_steps ?ide) steps'
   topPane
+
+smtWidget :: App a
+smtWidget = do
+  e <- div [classList [ ("box", True)
+                      , ("SMTWidget", True)
+                      ]
+           ]
+        [ True <$ button [onClick] [text "Solve"]
+        ]
+  when e $
+    log I "Solve button clicked"
+  smtWidget
 
 leftPane :: App a
 leftPane = do

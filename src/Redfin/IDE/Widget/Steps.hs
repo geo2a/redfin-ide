@@ -38,7 +38,8 @@ stepsWidget :: Either Text Steps -> Widget HTML Steps
 stepsWidget s = do
   let msg = either (const "") (Text.pack . show) s
   txt <- targetValue . target <$>
-         div [classList [("stepsWidget", True)]]
+         div [classList [ ("box", True)
+                        , ("stepsWidget", True)]]
              [ text ("Symbolic execution steps: ")
              , input [ placeholder msg
                      , value ""

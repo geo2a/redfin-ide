@@ -38,7 +38,8 @@ import           ISA.Assembly              (Script, assemble)
 -- | Display the assembly source code of the program
 sourceWidget :: App a
 sourceWidget =
-  div [classList [("sourceCode", True)]]
+  div [classList [ ("box", True)
+                 , ("sourceCode", True)]]
     [ h3 [] [text "Source code"]
     , ol [] (map (li [] . (:[]) . text) src)
     ]
