@@ -115,7 +115,7 @@ getClass' = \case
 htmlTrace :: Trace Context -> App a
 htmlTrace (Trace tree) =
   mapView (transformHTML isLeaf (mapVText (Text.cons '\n'))) .
-  showTreeHtml' . enumTree . fmap nodeBody $ tree
+  showTreeHtml' . enumTree . fmap _nodeBody $ tree
   where isLeaf :: VDOM -> Bool
         isLeaf node = case node of
           VNode "span" attrs _ _ ->

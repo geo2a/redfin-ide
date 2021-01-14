@@ -67,7 +67,7 @@ data IDEState =
            , _activeInitStateVal :: Context
 
            , _source             :: Script
-           , _runSymExec         :: Steps -> Context -> Trace Context
+           , _runSymExec         :: Steps -> Context -> IO (Trace Context)
 
            , _logger             :: LogAction (Widget HTML) Message
            }

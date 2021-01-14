@@ -29,6 +29,12 @@ fancyPathConstraint =
   map (li [] . (:[])) .
   reverse . map conjunct . splitToplevelConjs
 
+fancyConstraints :: [(Text, Sym)] -> Widget HTML a
+fancyConstraints =
+  ul [classList [("pathConstraint" , True)]] .
+  map (li [] . (:[])) .
+  reverse . map (conjunct . snd)
+
 -- | Any path constrain will ALWAYS be a left-associated conjunction
 -- of terms. For fancy displaying purposes we want to split it into
 -- these terms
@@ -78,7 +84,7 @@ displayContext :: Maybe Context -> Widget HTML a
 displayContext x =
   case x of
     Nothing -> text $ "Oops: no such state in the trace"
-    Just (MkContext vars pc) ->
+    Just (MkContext vars pc cs) ->
       let ir = Map.findWithDefault 0 IR vars
 
           h  = Text.pack . show $ Map.findWithDefault 0 (F Halted) vars
@@ -108,6 +114,10 @@ displayContext x =
                   , li [] [keyTag (Reg R2), span [] [text $ " : " <> r2]]
                   , li [] [keyTag (Reg R3), span [] [text $ " : " <> r3]]]
                   ]
+                ]
+            , li [] [
+                h4 [] [text "Constraints"],
+                fancyConstraints cs
                 ]
             , li [] [
                 h4 [] [text "Path Constraint"],
