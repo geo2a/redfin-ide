@@ -41,19 +41,20 @@ executable redfin-ide-exe
                     -Wredundant-constraints
                     -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
-    , aeson
-    , replica
-    , concur-replica
-    , concur-core
-    , wai
-    , mtl
-    , stm
-    , websockets
-    , containers
-    , text
-    , unreasonably-polymorphic-isa
-    , wai-middleware-static
-    , co-log-core
-    , co-log
+                    base >=4.7 && <5
+                , aeson
+                , co-log
+                , co-log-core
+                , concur-core
+                , concur-replica
+                , containers
+                , mtl
+                , replica
+                , sbv >= 8.9
+                , stm
+                , text
+                , unreasonably-polymorphic-isa
+                , wai
+                , wai-middleware-static
+                , websockets
   default-language: Haskell2010

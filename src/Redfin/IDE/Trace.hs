@@ -63,6 +63,7 @@ node args@(ctx, n) = do
   ev <- span [classList [ ("node", True)
                   , ("interactive", True)
                   , ("expanded", True)
+                  , ("reachable", isReachable ctx)
                   ]
              , id ("node" <> (Text.pack . show $ n))
              , Right <$> onMouseDown

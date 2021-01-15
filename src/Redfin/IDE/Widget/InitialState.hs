@@ -60,7 +60,7 @@ initStateWidget ctx = do
   xs <- keyValsWidget . fmap (Text.pack . show) $ relevant
   let xs' = catMaybes $ map (uncurry (flip parseSym)) . Map.toList $ xs
   log I $ Text.pack (show xs')
-  pure (MkContext (Map.union (Map.fromList xs') (_bindings ctx)) (SConst $ CBool True) (_constraints ctx))
+  pure (MkContext (Map.union (Map.fromList xs') (_bindings ctx)) (SConst $ CBool True) (_constraints ctx) Nothing)
   where isRelevant :: Key -> a -> Bool
         isRelevant k _ = case k of
           Reg _  -> True

@@ -76,7 +76,7 @@ body, html {
 
 /* Trace styling */
 .node {
-
+    color:       grey;
 }
 .interactive:hover {
     background-color: #CCC;
@@ -88,10 +88,12 @@ body, html {
 }
 .expanded {
     cursor:      pointer;
-    /* color:       grey; */
+}
+.reachable {
+    color: black;
 }
 .fixed {
-    color: black;
+    /* color: black; */
 }
 
 .shown {

@@ -69,6 +69,10 @@ data IDEState =
            , _source             :: Script
            , _runSymExec         :: Steps -> Context -> IO (Trace Context)
 
+           , _solvePressed       :: TMVar Bool
+           , _solve              :: Trace Context -> IO (Trace Context)
+
+
            , _logger             :: LogAction (Widget HTML) Message
            }
 

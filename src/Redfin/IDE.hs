@@ -39,7 +39,7 @@ import           Replica.VDOM.Render                as Render
 import           Text.Read                          (readEither)
 
 import           ISA.Backend.Symbolic.List.QueryRun (runModel)
-import qualified ISA.Example.Add                    as Example
+import qualified ISA.Example.Add                    as ExampleAdd
 import qualified ISA.Example.Sum                    as ExampleSum
 import           ISA.Types
 import           ISA.Types.Instruction.Decode
@@ -62,20 +62,26 @@ import qualified Debug.Trace                        as Debugger
 
 topPane :: App a
 topPane = do
-  steps' <-
+  event <-
     div [classList [ ("pane", True)
                    , ("toppane", True)
                    ]
         ]
         [ examplesWidget
-        , stepsWidget (Right (_stepsVal ?ide))
-        , smtWidget
+        , Right <$> stepsWidget (Right (_stepsVal ?ide))
+        , Left <$> smtWidget
         ]
-  when (steps' /= (_stepsVal ?ide)) $
-      liftIO . atomically $ putTMVar (_steps ?ide) steps'
+  case event of
+    Right steps' ->
+      when (steps' /= (_stepsVal ?ide)) $
+        liftIO . atomically $ putTMVar (_steps ?ide) steps'
+    Left solvePressed ->
+      when solvePressed $
+        -- log I $ "Solve pressed"
+        liftIO . atomically $ putTMVar (_solvePressed ?ide) True
   topPane
 
-smtWidget :: App a
+smtWidget :: App Bool
 smtWidget = do
   e <- div [classList [ ("box", True)
                       , ("SMTWidget", True)
@@ -83,9 +89,8 @@ smtWidget = do
            ]
         [ True <$ button [onClick] [text "Solve"]
         ]
-  when e $
-    log I "Solve button clicked"
-  smtWidget
+  -- smtWidget
+  pure e
 
 leftPane :: App a
 leftPane = do
@@ -102,7 +107,7 @@ leftPane = do
   leftPane
 
 emptyCtx :: Context
-emptyCtx = MkContext Map.empty (SConst (CBool True)) []
+emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
 
 -- | Cook the initial IDE state
 mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
@@ -112,16 +117,18 @@ mkIDE ex logger = do
   stepsVar  <- liftIO $ newTMVarIO 0
   exampleVar <- liftIO $ newTMVarIO ex
   ctxVar <- liftIO $ newTMVarIO emptyCtx
-
+  solvePressedVar <- liftIO $ newTMVarIO False
   case ex of
     ExampleAdd   -> do
-      trace <- liftIO $ runModel 0 Example.initCtx
+      trace <- liftIO $ ExampleAdd.run 0 ExampleAdd.initCtx
       traceVar  <- liftIO $ newTVarIO trace
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
              exampleVar ex
              ctxVar emptyCtx
-             Example.addLowLevel
-             runModel
+             ExampleAdd.addLowLevel
+             ExampleAdd.run
+             solvePressedVar
+             ExampleAdd.solve
              logger)
     ExampleSum   -> do
       trace <- liftIO $ runModel 0 ExampleSum.initContext
@@ -131,6 +138,8 @@ mkIDE ex logger = do
              ctxVar emptyCtx
              ExampleSum.sumArrayLowLevel
              runModel
+             solvePressedVar
+             ExampleAdd.solve
              logger)
     -- ExampleGCD   ->
     -- ExampleMotor ->
@@ -139,6 +148,7 @@ data Event = Proceed
            | ExampleChanged Example
            | StepsChanged Steps
            | InitStateChanged Context
+           | SolveButtonPressed
            deriving Show
 
 elimEvent :: Event -> App IDEState
@@ -168,6 +178,15 @@ elimEvent = \case
       writeTVar (_trace ide') trace
       cleanupQueues ide'
     pure ide'
+  SolveButtonPressed -> do
+    log D $ "Solve button pressed"
+    trace <- liftIO . atomically $ readTVar (_trace ?ide)
+    solvedTrace <- liftIO $ (_solve ?ide) trace
+    oldQueue <- liftIO . atomically $ do
+      writeTVar (_trace ?ide) solvedTrace
+      cleanupQueues ?ide
+    log D $ "Trace solved"
+    pure ?ide
   where cleanupQueues :: IDEState -> STM ()
         cleanupQueues ide =
           flushTQueue (_activeNodeQueue ide) *>
@@ -184,6 +203,7 @@ ideWidget = do
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
+      , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solvePressed ?ide)
       ]
   ide' <- elimEvent event
   let ?ide = ide' in

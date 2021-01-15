@@ -6,6 +6,8 @@ import qualified Concur.Replica.DOM.Events    as P
 import           Control.Applicative          ((<|>))
 import           Control.Monad.State
 import qualified Data.Map                     as Map
+import qualified Data.SBV                     as SBV (SMTResult (..),
+                                                      SatResult (..))
 import           Data.Text                    (Text)
 import qualified Data.Text                    as Text
 import qualified Data.Tree                    as Tree
@@ -34,6 +36,20 @@ fancyConstraints =
   ul [classList [("pathConstraint" , True)]] .
   map (li [] . (:[])) .
   reverse . map (conjunct . snd)
+
+fancySolution :: Maybe SBV.SatResult -> Widget HTML a
+fancySolution = \case
+  Nothing -> text "Not solved: press solve to start"
+  Just s@(SBV.SatResult r) -> case r of
+    SBV.Unsatisfiable _ _   -> text . Text.pack . show $ s
+    SBV.Satisfiable _ model -> text . Text.pack . show $ s
+    -- DeltaSat      SMTConfig (Maybe String) SMTModel
+    -- SatExtField   SMTConfig SMTModel
+    -- Unknown       SMTConfig SMTReasonUnknown
+    -- ProofError    SMTConfig [String] (Maybe SMTResult)
+    _                       -> error "fancySolution: not implemented"
+
+
 
 -- | Any path constrain will ALWAYS be a left-associated conjunction
 -- of terms. For fancy displaying purposes we want to split it into
@@ -84,7 +100,7 @@ displayContext :: Maybe Context -> Widget HTML a
 displayContext x =
   case x of
     Nothing -> text $ "Oops: no such state in the trace"
-    Just (MkContext vars pc cs) ->
+    Just (MkContext vars pc cs solution) ->
       let ir = Map.findWithDefault 0 IR vars
 
           h  = Text.pack . show $ Map.findWithDefault 0 (F Halted) vars
@@ -122,6 +138,10 @@ displayContext x =
             , li [] [
                 h4 [] [text "Path Constraint"],
                 fancyPathConstraint pc
+                ]
+            , li [] [
+                h4 [] [text "Solution"],
+                fancySolution solution
                 ]
             ]
   where
