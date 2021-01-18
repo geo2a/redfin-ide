@@ -136,14 +136,19 @@ displayContext x =
                 fancyConstraints cs
                 ]
             , li [] [
-                h4 [] [text "Path Constraint"],
+                h4 [] [text "Path condition"],
                 fancyPathConstraint pc
                 ]
             , li [] [
-                h4 [] [text "Solution"],
+                h4 [] [tooltipped "Path condition /\\ constraints"
+                       (text "Reachability condition")],
                 fancySolution solution
                 ]
             ]
   where
     keyTag key = span [classList [("keyTag", True)]]
                       [text $ Text.pack $ show key]
+
+tooltipped :: Text -> Widget HTML a -> Widget HTML a
+tooltipped tip w = span [classList [("tooltip", True)]]
+  [w, span [classList [("tooltiptext", True)]] [text tip]]
