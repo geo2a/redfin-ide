@@ -61,19 +61,24 @@ topPane = do
 symExecWidget :: Either Text Steps -> Widget HTML Steps
 symExecWidget s = do
   let msg = either (const "") (Text.pack . show) s
-  txt <- targetValue . target <$>
+  event <-
          div [classList [ ("widget", True), ("symExecWidget", True)]]
              [ h4 [] [text ("Symbolic execution")]
              , p [] [ label [] [text ("Steps: ")]
-                    , input [ placeholder msg
-                            , value ""
-                            , onChange, autofocus True]
+                    , (StepsChanged,) . targetValue . target <$> input [ placeholder msg
+                                          , value ""
+                                          , onChange, autofocus True]
+                    , (RunPressed,"") <$ button [onClick] [text "Run"]
                     ]
              -- , either (const $ text "Error: invalid input") (const empty) s
              ]
-  case (readEither . Text.unpack $ txt) of
-    Left err -> symExecWidget (Left (Text.pack err))
-    Right x  -> pure x
+  case event of
+    (StepsChanged, e) -> case (readEither . Text.unpack $ e) of
+      Left err -> symExecWidget (Left (Text.pack err))
+      Right x  -> symExecWidget (Right x)
+    (RunPressed,_) -> case s of
+      Left err -> symExecWidget (Left err)
+      Right x  -> pure x
 
 
 smtWidget :: Widget HTML Bool

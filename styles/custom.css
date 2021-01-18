@@ -83,6 +83,15 @@ body {
     margin: 0px;
 }
 
+.widget input {
+    width: 5em;
+}
+
+.widget button {
+    margin-top: 5px;
+    width: 100%;
+}
+
 /* Trace styling */
 .node {
     color:       grey;
