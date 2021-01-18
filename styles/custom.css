@@ -6,10 +6,9 @@ body, html {
   font-family: monospace;
 }
 
-.container {
-  width: 100%;
-  height: 100%;
-  margin: 0; pagging: 0;
+body {
+    display: flex;
+    flex-flow: column wrap;
 }
 
 .pane {
@@ -20,7 +19,12 @@ body, html {
     border-radius: 3px;
     border-color: #a5b1c2;
 
+    padding: 0px;
     margin: 0px;
+}
+
+.pane h3 {
+    margin:0px;
 }
 
 .box {
@@ -29,50 +33,55 @@ body, html {
     border: 1px solid grey;
 }
 
-.leftpane {
-    width: 20%;
-    height: 100%;
-    float: left;
-
-    margin: 5px 5px 5px 0px;
-}
-
-.middlepane {
-    width: 39%;
-    height: 100%;
-    float: left;
-    overflow: scroll;
-
-    padding: 0px;
-    padding-left: 5px;
-    margin: 5px;
-}
-
-.rightpane {
-  width: 38%;
-  height: 100%;
-  position: relative;
-  float: right;
-
-  margin: 5px 0px 5px 5px;
+.grid-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+        "header header header"
+        "leftpane middlepane rightpane";
+    gap: 10px;
 }
 
 .toppane {
-  width: 100%;
-  height: 100px;
-
-  margin-bottom: 5px;
+  /* width: 100%; */
+    grid-area: header;
+    height: 150px;
+    display: flex;
 }
 
 .toppane ul {
     list-style-type:none;
-    display: inline-block;
 }
 
-.toppane div {
-    display: inline-block;
+.leftpane {
+    grid-area: leftpane;
 }
 
+.middlepane {
+    grid-area: middlepane;
+}
+
+.middlepane pre {
+    margin: 0px;
+}
+
+.rightpane {
+    grid-area: rightpane;
+}
+
+
+.widget {
+    margin: 5px;
+    padding: 5px;
+    height: 80%;
+    width: 200px;
+    border: 1px solid grey;
+}
+
+.widget h4 {
+    margin: 0px;
+}
 
 /* Trace styling */
 .node {
@@ -137,13 +146,26 @@ button:hover {
 	background-color:#b8e356;
 }
 
+
+.examplesWidget ul {
+    padding-left: 0;
+}
+
+.examplesWidget ul li {
+    margin-bottom: 20px;
+}
+
+.examples {
+    display: flex;
+    flex-wrap: wrap;
+}
+
 .exampleButton {
 	box-shadow:inset 0px 1px 0px 0px #ffffff;
 	background:linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
 	background-color:#ededed;
 	border-radius:6px;
 	border:1px solid #dcdcdc;
-	display:inline-block;
 	cursor:pointer;
 	color:#777777;
 	font-family:Arial;

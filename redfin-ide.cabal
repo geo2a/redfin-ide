@@ -23,7 +23,8 @@ executable redfin-ide-exe
   other-modules:
       Redfin.IDE,
       Redfin.IDE.State,
-      Redfin.IDE.Trace
+      Redfin.IDE.Trace,
+      Redfin.IDE.Widget.Top
   hs-source-dirs:
       src
   default-extensions: LambdaCase
@@ -32,6 +33,9 @@ executable redfin-ide-exe
                     , StandaloneDeriving
                     , OverloadedStrings
                     , ImplicitParams
+                    , PatternSynonyms
+                    , TupleSections
+
   GHC-options:      -Wall
                     -fno-warn-name-shadowing
                     -fno-warn-unused-imports

@@ -1,6 +1,4 @@
-{-# LANGUAGE PatternSynonyms #-}
-
-module Redfin.IDE.Widget.Examples
+module Redfin.IDE.Widget.Top.Examples
   ( swapExample
   , examplesWidget
   ) where
@@ -42,32 +40,33 @@ import qualified ISA.Example.Sum                    as ESum
 
 swapExample :: IDEState -> Example -> IDEState
 swapExample ide = \case
-  ExampleAdd -> ide { _source = EAdd.addLowLevel
-                    , _runSymExec = runModel
-                    , _activeExampleVal = ExampleAdd
-                    , _stepsVal = 0
-                    , _activeInitStateVal = EAdd.initCtx
-                    }
-  ExampleSum -> ide { _source = ESum.sumArrayLowLevel
-                    , _runSymExec = runModel
-                    , _activeExampleVal = ExampleSum
-                    , _stepsVal = 0
-                    , _activeInitStateVal = ESum.initContext
-                    }
+  Add -> ide { _source = EAdd.addLowLevel
+             , _runSymExec = runModel
+             , _activeExampleVal = Add
+             , _stepsVal = 0
+             , _activeInitStateVal = EAdd.initCtx
+             }
+  Sum -> ide { _source = ESum.sumArrayLowLevel
+             , _runSymExec = runModel
+             , _activeExampleVal = Sum
+             , _stepsVal = 0
+             , _activeInitStateVal = ESum.initContext
+             }
 
 examplesWidget :: App a
 examplesWidget = do
   log I "Example widget initialised"
-  e <- ul [classList [("examplesWidget", True)]]
-          [ exampleButton ExampleAdd
-          , exampleButton ExampleSum
-          -- , li [] [span [] [button [ExampleGCD <$ onClick] [text "GCD"]]]
-          -- , li [] [span [] [button [ExampleMotor <$ onClick] [text "Motor"]]]
-          ]
+  e <- div [classList [("widget", True), ("examplesWidget", True)]]
+           [ h4 [] [text "Examples"]
+           , div [classList [("examples", True)]]
+                 [ exampleButton Add
+                 , exampleButton Sum
+                 ]
+           ]
   liftIO . atomically $ putTMVar (_activeExample ?ide) e
   examplesWidget
   where exampleButton ex =
-          li [] [a [ classList [ ("exampleButton", True)
-                               , ("activeExample", ex == _activeExampleVal ?ide)]
-                   , ex <$ onClick]
-                   [text (Text.pack $ show ex)]]
+          a [ classList [ ("exampleButton", True)
+                        , ("activeExample", ex == _activeExampleVal ?ide)]
+            , ex <$ onClick]
+            [text (Text.pack $ show ex)]

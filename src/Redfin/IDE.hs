@@ -51,46 +51,15 @@ import           Redfin.IDE.State
 import           Redfin.IDE.Trace                   (htmlTrace)
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
-import           Redfin.IDE.Widget.Examples
 import           Redfin.IDE.Widget.InitialState
 import           Redfin.IDE.Widget.Source
 import           Redfin.IDE.Widget.State
-import           Redfin.IDE.Widget.Steps
+import           Redfin.IDE.Widget.Top
+import           Redfin.IDE.Widget.Top.Examples
 import           Redfin.IDE.Widget.Trace
 
 import qualified Debug.Trace                        as Debugger
 
-topPane :: App a
-topPane = do
-  event <-
-    div [classList [ ("pane", True)
-                   , ("toppane", True)
-                   ]
-        ]
-        [ examplesWidget
-        , Right <$> stepsWidget (Right (_stepsVal ?ide))
-        , Left <$> smtWidget
-        ]
-  case event of
-    Right steps' ->
-      when (steps' /= (_stepsVal ?ide)) $
-        liftIO . atomically $ putTMVar (_steps ?ide) steps'
-    Left solvePressed ->
-      when solvePressed $
-        -- log I $ "Solve pressed"
-        liftIO . atomically $ putTMVar (_solvePressed ?ide) True
-  topPane
-
-smtWidget :: App Bool
-smtWidget = do
-  e <- div [classList [ ("box", True)
-                      , ("SMTWidget", True)
-                      ]
-           ]
-        [ True <$ button [onClick] [text "Solve"]
-        ]
-  -- smtWidget
-  pure e
 
 leftPane :: App a
 leftPane = do
@@ -119,7 +88,7 @@ mkIDE ex logger = do
   ctxVar <- liftIO $ newTMVarIO emptyCtx
   solvePressedVar <- liftIO $ newTMVarIO False
   case ex of
-    ExampleAdd   -> do
+    Add   -> do
       trace <- liftIO $ ExampleAdd.run 0 ExampleAdd.initCtx
       traceVar  <- liftIO $ newTVarIO trace
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
@@ -130,7 +99,7 @@ mkIDE ex logger = do
              solvePressedVar
              ExampleAdd.solve
              logger)
-    ExampleSum   -> do
+    Sum   -> do
       trace <- liftIO $ runModel 0 ExampleSum.initContext
       traceVar  <- liftIO $ newTVarIO trace
       pure (IDEState traceVar stepsVar 0 nodeIdQueue
@@ -195,11 +164,11 @@ elimEvent = \case
 ideWidget :: App a
 ideWidget = do
   event <- MultiAlternative.orr
-      [ Proceed <$ topPane
-      , Proceed <$ leftPane
-      , Proceed <$ traceWidget
-      , Proceed <$ stateWidget
-
+      [ Proceed <$ div [classList [("grid-container", True)]]
+                       [ topPane
+                       , leftPane
+                       , traceWidget
+                       , stateWidget]
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)

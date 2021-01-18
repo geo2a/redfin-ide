@@ -46,8 +46,8 @@ instance Ord (WithKey a) where
 
 type Steps = Int
 
-data Example = ExampleAdd
-             | ExampleSum
+data Example = Add
+             | Sum
              -- | ExampleGCD
              -- | ExampleMotor
              deriving (Show, Eq)
