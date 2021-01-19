@@ -18,7 +18,7 @@ import qualified Data.Text                  as Text
 import qualified Data.Tree                  as Tree
 import           Prelude                    hiding (div, id, log, span)
 
-import           ISA.Types
+import           ISA.Types                  hiding (not)
 import           ISA.Types.Symbolic.Context hiding (showIR)
 import           ISA.Types.Symbolic.Trace
 
@@ -64,6 +64,7 @@ node args@(ctx, n) = do
                   , ("interactive", True)
                   , ("expanded", True)
                   , ("reachable", isReachable ctx)
+                  , ("hidden", (not $ isReachable ctx) && _displayUnreachableVal ?ide)
                   ]
              , id ("node" <> (Text.pack . show $ n))
              , Right <$> onMouseDown

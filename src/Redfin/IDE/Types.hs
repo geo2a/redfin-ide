@@ -53,27 +53,29 @@ data Example = Add
              deriving (Show, Eq)
 
 data IDEState =
-  IDEState { _trace              :: TVar (Trace Context)
+  IDEState { _trace                 :: TVar (Trace Context)
+           , _displayUnreachable    :: TMVar Bool
+           , _displayUnreachableVal :: Bool
 
-           , _steps              :: TMVar Steps
-           , _stepsVal           :: Steps
+           , _steps                 :: TMVar Steps
+           , _stepsVal              :: Steps
 
-           , _activeNodeQueue    :: TQueue NodeId
+           , _activeNodeQueue       :: TQueue NodeId
 
-           , _activeExample      :: TMVar Example
-           , _activeExampleVal   :: Example
+           , _activeExample         :: TMVar Example
+           , _activeExampleVal      :: Example
 
-           , _activeInitState    :: TMVar Context
-           , _activeInitStateVal :: Context
+           , _activeInitState       :: TMVar Context
+           , _activeInitStateVal    :: Context
 
-           , _source             :: Script
-           , _runSymExec         :: Steps -> Context -> IO (Trace Context)
+           , _source                :: Script
+           , _runSymExec            :: Steps -> Context -> IO (Trace Context)
 
-           , _solvePressed       :: TMVar Bool
-           , _solve              :: Trace Context -> IO (Trace Context)
+           , _solvePressed          :: TMVar Bool
+           , _solve                 :: Trace Context -> IO (Trace Context)
 
 
-           , _logger             :: LogAction (Widget HTML) Message
+           , _logger                :: LogAction (Widget HTML) Message
            }
 
 type App a = (HasCallStack, ?ide :: IDEState) => Widget HTML a

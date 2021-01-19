@@ -7,6 +7,7 @@ import           Concur.Core
 import           Concur.Core.Types
 import           Concur.Replica                 hiding (id)
 import qualified Concur.Replica.DOM.Events      as P
+import           Concur.Replica.DOM.Props
 import           Control.Applicative            (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class         (liftIO)
@@ -30,10 +31,11 @@ import           Redfin.IDE.Types
 
 import           Redfin.IDE.Widget.Top.Examples
 
-data ActionTag = StepsChanged
-               | SolvePressed
-               | RunPressed
+data Action = StepsChanged Int
+            | SolvePressed
+            | DisplayUnreachableToggled
 
+-- | Top pane of the IDE and its widgets
 topPane :: App a
 topPane = do
   event <-
@@ -42,50 +44,49 @@ topPane = do
                    ]
         ]
         [ examplesWidget
-        , (StepsChanged,) <$> symExecWidget (Right (_stepsVal ?ide))
-        , (SolvePressed,0) <$ smtWidget
+        , symExecWidget
+        , smtWidget
         ]
   case event of
-    (StepsChanged, steps') ->
+    StepsChanged steps' ->
       when (steps' /= (_stepsVal ?ide)) $
         liftIO . atomically $ putTMVar (_steps ?ide) steps'
-    (SolvePressed, _) ->
-        -- log I $ "Solve pressed"
+    SolvePressed ->
         liftIO . atomically $ putTMVar (_solvePressed ?ide) True
-    _ -> do
-      log E "unknown action"
-      pure ()
+    DisplayUnreachableToggled ->
+      let display' = not (_displayUnreachableVal ?ide)
+          ide' = ?ide {_displayUnreachableVal = display'}
+      in do liftIO . atomically $ putTMVar (_displayUnreachable ?ide) display'
+            let ?ide = ide' in topPane
   topPane
 
 -- | Specify the number of symbolic execution steps
-symExecWidget :: Either Text Steps -> Widget HTML Steps
-symExecWidget s = do
-  let msg = either (const "") (Text.pack . show) s
-  event <-
-         div [classList [ ("widget", True), ("symExecWidget", True)]]
-             [ h4 [] [text ("Symbolic execution")]
-             , p [] [ label [] [text ("Steps: ")]
-                    , (StepsChanged,) . targetValue . target <$> input [ placeholder msg
-                                          , value ""
-                                          , onChange, autofocus True]
-                    , (RunPressed,"") <$ button [onClick] [text "Run"]
-                    ]
-             -- , either (const $ text "Error: invalid input") (const empty) s
-             ]
+symExecWidget :: App Action
+symExecWidget = do
+  let msg = Text.pack . show $ _stepsVal ?ide
+  event <- div [classList [ ("widget", True), ("symExecWidget", True)]]
+               [ h4 [] [text ("Symbolic execution")]
+               , p [] [ label [] [text ("Steps: ")]
+                      , Just . targetValue . target <$>
+                          input [ placeholder msg, value "", onChange, autofocus True]
+                      , Nothing <$ button [onClick] [text "Run"]
+                      ]
+               ]
   case event of
-    (StepsChanged, e) -> case (readEither . Text.unpack $ e) of
-      Left err -> symExecWidget (Left (Text.pack err))
-      Right x  -> symExecWidget (Right x)
-    (RunPressed,_) -> case s of
-      Left err -> symExecWidget (Left err)
-      Right x  -> pure x
+    Just e -> case (readEither . Text.unpack $ e) of
+      Left _      -> symExecWidget
+      Right steps -> let ?ide = ?ide {_stepsVal = steps } in symExecWidget
+    Nothing -> pure . StepsChanged $ _stepsVal ?ide
 
-
-smtWidget :: Widget HTML Bool
+-- | Handle SMT solving
+smtWidget :: App Action
 smtWidget =
   div [classList [ ("widget", True), ("SMTWidget", True)
                  ]
       ]
       [ h4 [] [text "SMT Solving"]
-      , p [] [True <$ button [onClick] [text "Solve"]]
+      , SolvePressed <$ button [onClick] [text "Solve"]
+      , DisplayUnreachableToggled <$
+        label [] [ input [type_ "checkbox", checked (_displayUnreachableVal ?ide), onClick]
+                 , text "Display unreachable"]
       ]

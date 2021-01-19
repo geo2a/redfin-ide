@@ -83,10 +83,6 @@ body {
     margin: 0px;
 }
 
-.widget input {
-    width: 5em;
-}
-
 .widget button {
     margin-top: 5px;
     width: 100%;
@@ -209,8 +205,12 @@ button:hover {
         margin-top: 10px;
 }
 
-.SMTWidget {
+.SMTWidget label {
+    font-size: 10pt;
+}
 
+.symExecWidget input {
+    width: 4em;
 }
 
 .tooltip {

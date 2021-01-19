@@ -41,7 +41,7 @@ import           Text.Read                          (readEither)
 import           ISA.Backend.Symbolic.List.QueryRun (runModel)
 import qualified ISA.Example.Add                    as ExampleAdd
 import qualified ISA.Example.Sum                    as ExampleSum
-import           ISA.Types
+import           ISA.Types                          hiding (not)
 import           ISA.Types.Instruction.Decode
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
@@ -87,29 +87,36 @@ mkIDE ex logger = do
   exampleVar <- liftIO $ newTMVarIO ex
   ctxVar <- liftIO $ newTMVarIO emptyCtx
   solvePressedVar <- liftIO $ newTMVarIO False
+  displayUnreachableVar <- liftIO $ newTMVarIO True
   case ex of
     Add   -> do
       trace <- liftIO $ ExampleAdd.run 0 ExampleAdd.initCtx
       traceVar  <- liftIO $ newTVarIO trace
-      pure (IDEState traceVar stepsVar 0 nodeIdQueue
-             exampleVar ex
-             ctxVar emptyCtx
-             ExampleAdd.addLowLevel
-             ExampleAdd.run
-             solvePressedVar
-             ExampleAdd.solve
-             logger)
+      pure (IDEState traceVar
+            displayUnreachableVar
+           False
+            stepsVar 0 nodeIdQueue
+            exampleVar ex
+            ctxVar emptyCtx
+            ExampleAdd.addLowLevel
+            ExampleAdd.run
+            solvePressedVar
+            ExampleAdd.solve
+            logger)
     Sum   -> do
       trace <- liftIO $ runModel 0 ExampleSum.initContext
       traceVar  <- liftIO $ newTVarIO trace
-      pure (IDEState traceVar stepsVar 0 nodeIdQueue
-             exampleVar ex
-             ctxVar emptyCtx
-             ExampleSum.sumArrayLowLevel
-             runModel
-             solvePressedVar
-             ExampleAdd.solve
-             logger)
+      pure (IDEState traceVar
+            displayUnreachableVar
+           False
+            stepsVar 0 nodeIdQueue
+            exampleVar ex
+            ctxVar emptyCtx
+            ExampleSum.sumArrayLowLevel
+            runModel
+            solvePressedVar
+            ExampleAdd.solve
+            logger)
     -- ExampleGCD   ->
     -- ExampleMotor ->
 
@@ -118,6 +125,7 @@ data Event = Proceed
            | StepsChanged Steps
            | InitStateChanged Context
            | SolveButtonPressed
+           | TraceDisplayToggled
            deriving Show
 
 elimEvent :: Event -> App IDEState
@@ -156,6 +164,10 @@ elimEvent = \case
       cleanupQueues ?ide
     log D $ "Trace solved"
     pure ?ide
+  TraceDisplayToggled -> do
+    log D $ "Trace display unreachable checkbox toggled"
+    let display' = not (_displayUnreachableVal ?ide)
+    pure $ ?ide {_displayUnreachableVal = display'}
   where cleanupQueues :: IDEState -> STM ()
         cleanupQueues ide =
           flushTQueue (_activeNodeQueue ide) *>
@@ -169,10 +181,12 @@ ideWidget = do
                        , leftPane
                        , traceWidget
                        , stateWidget]
+
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
       , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solvePressed ?ide)
+      , TraceDisplayToggled <$ (liftIO . atomically . takeTMVar $ _displayUnreachable ?ide)
       ]
   ide' <- elimEvent event
   let ?ide = ide' in
