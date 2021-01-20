@@ -61,6 +61,10 @@ import           Redfin.IDE.Widget.Trace
 
 import qualified Debug.Trace                        as Debugger
 
+-- | Cook the initial IDE state
+mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
+mkIDE ex logger =
+  (flip swapExample) ex <$> (emptyIDE logger)
 
 leftPane :: App a
 leftPane = do
@@ -76,52 +80,6 @@ leftPane = do
     liftIO . atomically $ putTMVar (_activeInitState ?ide) newInitState
   leftPane
 
-emptyCtx :: Context
-emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
-
--- | Cook the initial IDE state
-mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
-mkIDE ex logger = do
-  nodeIdQueue <- liftIO newTQueueIO
-  atomically $ writeTQueue nodeIdQueue 0
-  stepsVar  <- liftIO $ newTMVarIO 0
-  exampleVar <- liftIO $ newTMVarIO ex
-  ctxVar <- liftIO $ newTMVarIO emptyCtx
-  solving <- liftIO $ newTMVarIO ()
-  solverBusyVar <- liftIO $ newTMVarIO ()
-  displayUnreachableVar <- liftIO $ newTMVarIO True
-  case ex of
-    Add   -> do
-      trace <- liftIO $ ExampleAdd.run 0 ExampleAdd.initCtx
-      traceVar  <- liftIO $ newTVarIO trace
-      pure (IDEState traceVar
-            displayUnreachableVar
-            True
-            stepsVar 0 nodeIdQueue
-            exampleVar ex
-            ctxVar emptyCtx
-            ExampleAdd.addLowLevel
-            ExampleAdd.run
-            solving
-            ExampleAdd.solve
-            logger)
-    Sum   -> do
-      trace <- liftIO $ runModel 0 ExampleSum.initContext
-      traceVar  <- liftIO $ newTVarIO trace
-      pure (IDEState traceVar
-            displayUnreachableVar
-            True
-            stepsVar 0 nodeIdQueue
-            exampleVar ex
-            ctxVar emptyCtx
-            ExampleSum.sumArrayLowLevel
-            runModel
-            solving
-            ExampleAdd.solve
-            logger)
-    -- ExampleGCD   ->
-    -- ExampleMotor ->
-
 data Event = Proceed
            | ExampleChanged Example
            | StepsChanged Steps
@@ -136,9 +94,8 @@ elimEvent = \case
   ExampleChanged ex -> do
     log D $ "Example changed to " <> Text.pack (show ex)
     let ide' = swapExample ?ide ex
-    trace <- liftIO $ _runSymExec ide' 0 (_activeInitStateVal ide')
     oldQueue <- liftIO . atomically $ do
-      writeTVar (_trace ide') trace
+      writeTVar (_trace ide') emptyTrace
       cleanupQueues ide'
     pure ide'
   StepsChanged steps -> do

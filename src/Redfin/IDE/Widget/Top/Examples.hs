@@ -37,17 +37,21 @@ import           Redfin.IDE.Widget
 import           ISA.Backend.Symbolic.List.QueryRun (runModel)
 import qualified ISA.Example.Add                    as EAdd
 import qualified ISA.Example.Sum                    as ESum
+import           ISA.Types.Symbolic.Trace           (solveTrace)
 
 swapExample :: IDEState -> Example -> IDEState
 swapExample ide = \case
+  None -> ide -- TODO: put empty IDE here
   Add -> ide { _source = EAdd.addLowLevel
              , _runSymExec = runModel
+             , _solve = solveTrace
              , _activeExampleVal = Add
              , _stepsVal = 0
              , _activeInitStateVal = EAdd.initCtx
              }
   Sum -> ide { _source = ESum.sumArrayLowLevel
              , _runSymExec = runModel
+             , _solve = solveTrace
              , _activeExampleVal = Sum
              , _stepsVal = 0
              , _activeInitStateVal = ESum.initContext

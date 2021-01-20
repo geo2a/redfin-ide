@@ -67,7 +67,7 @@ node args@(ctx, n) = do
                   , ("hidden", (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide))
                   ]
              , id ("node" <> (Text.pack . show $ n))
-             , Right <$> onMouseDown
+             , Right <$> onClick
              ]
              [ text (Text.pack . show $ n)]
   case ev of

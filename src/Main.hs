@@ -74,5 +74,5 @@ main = run
   index
   defaultConnectionOptions
   static $ \_ -> do
-    ide <- liftIO $ mkIDE Sum simpleMessageAction
+    ide <- liftIO $ mkIDE None simpleMessageAction
     let ?ide = ide in ideWidget

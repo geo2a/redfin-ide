@@ -20,12 +20,14 @@ import           Concur.Core.Types
 import           Concur.Replica              hiding (id)
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
+import qualified Data.Map.Strict             as Map
 import           Data.Text                   (Text)
 import           GHC.Stack                   (HasCallStack, callStack,
                                               withFrozenCallStack)
 
 import           ISA.Assembly
 import           ISA.Types
+import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.Trace
 
@@ -47,7 +49,8 @@ instance Ord (WithKey a) where
 
 type Steps = Int
 
-data Example = Add
+data Example = None
+             | Add
              | Sum
              -- | ExampleGCD
              -- | ExampleMotor
@@ -80,6 +83,59 @@ data IDEState =
            }
 
 type App a = (HasCallStack, ?ide :: IDEState) => Widget HTML a
+
+emptyCtx :: Context
+emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
+
+emptyTrace :: Trace Context
+emptyTrace = mkTrace (Node 0 emptyCtx) []
+
+emptyIDE :: LogAction (Widget HTML) Message -> IO IDEState
+emptyIDE logger = do
+  trace  <- newTVarIO emptyTrace
+  displayUnreachable <- newEmptyTMVarIO
+  let displayUnreachableVal = True
+
+  steps  <- newEmptyTMVarIO
+  let stepsVal = 0
+
+  activeNodeQueue <- newTQueueIO
+
+  activeExample <- newEmptyTMVarIO
+  let activeExampleVal = None
+
+  activeInitState <- newEmptyTMVarIO
+  let activeInitStateVal = emptyCtx
+
+  let source = pure ()
+      runSymExec = \_ _ -> pure emptyTrace
+
+  solving <- newEmptyTMVarIO
+  let solve = \_ -> pure emptyTrace
+
+  pure $ IDEState
+    trace
+    displayUnreachable
+    displayUnreachableVal
+
+    steps
+    stepsVal
+
+    activeNodeQueue
+
+    activeExample
+    activeExampleVal
+
+    activeInitState
+    activeInitStateVal
+
+    source
+    runSymExec
+
+    solving
+    solve
+
+    logger
 
 -- | Here we mimic co-log's loggin functions with implicit params
 --   with a hope to refactor the code later to use the actual co-log
