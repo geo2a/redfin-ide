@@ -8,20 +8,21 @@
 
 module Redfin.IDE.Types where
 
-import           Colog                      (pattern D, HasLog (..), pattern I,
-                                             LogAction (..), Message, Severity,
-                                             WithLog, richMessageAction)
-import           Colog.Message              (Msg (..))
-import           Control.Monad.IO.Class     (MonadIO)
-import           Control.Monad.Reader       (MonadReader, ReaderT (..))
+import           Colog                       (pattern D, HasLog (..), pattern I,
+                                              LogAction (..), Message, Severity,
+                                              WithLog, richMessageAction)
+import           Colog.Message               (Msg (..))
+import           Control.Monad.IO.Class      (MonadIO)
+import           Control.Monad.Reader        (MonadReader, ReaderT (..))
 
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica             hiding (id)
+import           Concur.Replica              hiding (id)
 import           Control.Concurrent.STM
-import           Data.Text                  (Text)
-import           GHC.Stack                  (HasCallStack, callStack,
-                                             withFrozenCallStack)
+import           Control.Concurrent.STM.TSem
+import           Data.Text                   (Text)
+import           GHC.Stack                   (HasCallStack, callStack,
+                                              withFrozenCallStack)
 
 import           ISA.Assembly
 import           ISA.Types
@@ -31,7 +32,7 @@ import           ISA.Types.Symbolic.Trace
 -- | Either-like datatype for tracking new/old content of tags
 data Contents a b = Old a
                   | New b
-                  deriving (Show, Eq)
+                  deriving (Show, Eq, Ord)
 
 -- | A pair of a 'ISA.Types.Key' and a value
 --   Eq and Ord instances only consider the key
@@ -71,7 +72,7 @@ data IDEState =
            , _source                :: Script
            , _runSymExec            :: Steps -> Context -> IO (Trace Context)
 
-           , _solvePressed          :: TMVar Bool
+           , _solving               :: TMVar ()
            , _solve                 :: Trace Context -> IO (Trace Context)
 
 

@@ -34,3 +34,16 @@ joinOrLast = (toList . Set.fromList . toList <$>) . andd' . Seq.fromList
             else do
               rest <- go xs' is'
               pure $ e <| rest
+
+joinThem :: Ord a => [Widget HTML a] -> Widget HTML [a]
+joinThem = (toList . Set.fromList . toList <$>) . andd' . Seq.fromList
+  where
+    andd' :: Seq (Widget HTML a) -> Widget HTML (Seq a)
+    andd' ws = go ws Set.empty
+      where
+        go xs is = do
+          (i, e) <- Seq.foldrWithIndex (\i w r -> (fmap (i,) w) <|> r) empty ws
+          let xs' = Seq.deleteAt i xs
+              is' = Set.insert i is
+          rest <- go xs' is'
+          pure $ e <| rest

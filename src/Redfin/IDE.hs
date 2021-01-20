@@ -21,6 +21,7 @@ import           Concur.Replica                     hiding (id)
 import qualified Concur.Replica.DOM.Events          as P
 import           Control.Applicative                (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TSem
 import           Control.Monad.IO.Class             (liftIO)
 import           Control.Monad.Reader
 import qualified Control.MultiAlternative           as MultiAlternative
@@ -86,7 +87,8 @@ mkIDE ex logger = do
   stepsVar  <- liftIO $ newTMVarIO 0
   exampleVar <- liftIO $ newTMVarIO ex
   ctxVar <- liftIO $ newTMVarIO emptyCtx
-  solvePressedVar <- liftIO $ newTMVarIO False
+  solving <- liftIO $ newTMVarIO ()
+  solverBusyVar <- liftIO $ newTMVarIO ()
   displayUnreachableVar <- liftIO $ newTMVarIO True
   case ex of
     Add   -> do
@@ -94,13 +96,13 @@ mkIDE ex logger = do
       traceVar  <- liftIO $ newTVarIO trace
       pure (IDEState traceVar
             displayUnreachableVar
-           False
+            False
             stepsVar 0 nodeIdQueue
             exampleVar ex
             ctxVar emptyCtx
             ExampleAdd.addLowLevel
             ExampleAdd.run
-            solvePressedVar
+            solving
             ExampleAdd.solve
             logger)
     Sum   -> do
@@ -114,7 +116,7 @@ mkIDE ex logger = do
             ctxVar emptyCtx
             ExampleSum.sumArrayLowLevel
             runModel
-            solvePressedVar
+            solving
             ExampleAdd.solve
             logger)
     -- ExampleGCD   ->
@@ -185,7 +187,7 @@ ideWidget = do
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
-      , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solvePressed ?ide)
+      , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solving ?ide)
       , TraceDisplayToggled <$ (liftIO . atomically . takeTMVar $ _displayUnreachable ?ide)
       ]
   ide' <- elimEvent event
