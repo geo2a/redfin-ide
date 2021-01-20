@@ -33,9 +33,8 @@ import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.Top.Examples
 
-data Action = StepsChanged Int
-            | SolvePressed
-            | DisplayUnreachableToggled
+data SMTAction = SolvePressed
+               | DisplayUnreachableToggled
 
 -- | Top pane of the IDE and its widgets
 topPane :: App a
