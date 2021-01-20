@@ -96,7 +96,7 @@ mkIDE ex logger = do
       traceVar  <- liftIO $ newTVarIO trace
       pure (IDEState traceVar
             displayUnreachableVar
-            False
+            True
             stepsVar 0 nodeIdQueue
             exampleVar ex
             ctxVar emptyCtx
@@ -110,7 +110,7 @@ mkIDE ex logger = do
       traceVar  <- liftIO $ newTVarIO trace
       pure (IDEState traceVar
             displayUnreachableVar
-           False
+            True
             stepsVar 0 nodeIdQueue
             exampleVar ex
             ctxVar emptyCtx

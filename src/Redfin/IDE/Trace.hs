@@ -64,7 +64,7 @@ node args@(ctx, n) = do
                   , ("interactive", True)
                   , ("expanded", True)
                   , ("reachable", isReachable ctx)
-                  , ("hidden", (not $ isReachable ctx) && _displayUnreachableVal ?ide)
+                  , ("hidden", (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide))
                   ]
              , id ("node" <> (Text.pack . show $ n))
              , Right <$> onMouseDown
