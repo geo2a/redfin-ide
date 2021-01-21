@@ -19,6 +19,8 @@ import           ISA.Types.Symbolic           (Sym (..))
 import           ISA.Types.Symbolic.Context   hiding (showIR)
 import           ISA.Types.Symbolic.Trace
 
+import           Redfin.IDE.Widget
+
 showIR :: Sym -> Text
 showIR v =
   case toInstruction v of
@@ -148,7 +150,3 @@ displayContext x =
   where
     keyTag key = span [classList [("keyTag", True)]]
                       [text $ Text.pack $ show key]
-
-tooltipped :: Text -> Widget HTML a -> Widget HTML a
-tooltipped tip w = span [classList [("tooltip", True)]]
-  [w, span [classList [("tooltiptext", True)]] [text tip]]

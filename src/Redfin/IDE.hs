@@ -109,9 +109,8 @@ elimEvent = \case
   InitStateChanged ctx -> do
     log D $ "Init state changed"
     let ide' = ?ide {_activeInitStateVal = ctx, _stepsVal = 0}
-    trace <- liftIO $ _runSymExec ide' 0 (_activeInitStateVal ide')
     oldQueue <- liftIO . atomically $ do
-      writeTVar (_trace ide') trace
+      writeTVar (_trace ide') emptyTrace
       cleanupQueues ide'
     pure ide'
   SolveButtonPressed -> do

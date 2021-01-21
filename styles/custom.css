@@ -193,17 +193,42 @@ button:hover {
 }
 
 .initState {
-    padding-bottom: 10px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: auto;
+    /* gap: 10px; */
+    /* grid-template-areas: */
+    /*     "key eq val" */
 }
 
-.initState input {
-    width: 5em;
+.initKey {
+
+    /* grid-area : key; */
 }
 
-.initState button {
-        width: 75%;
-        margin-top: 10px;
+.initEq {
+    /* grid-area : eq; */
+    text-align: center;
 }
+
+.initVal {
+    /* grid-area : val; */
+}
+
+
+
+/* .initState { */
+/*     padding-bottom: 10px; */
+/* } */
+
+/* .initState input { */
+/*     width: 5em; */
+/* } */
+
+/* .initState button { */
+/*         width: 75%; */
+/*         margin-top: 10px; */
+/* } */
 
 .SMTWidget label {
     font-size: 10pt;

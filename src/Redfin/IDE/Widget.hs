@@ -11,6 +11,8 @@ import           Data.Sequence             (Seq, (<|), (|>))
 import qualified Data.Sequence             as Seq
 import           Data.Set                  (Set)
 import qualified Data.Set                  as Set
+import           Data.Text                 (Text)
+import           Prelude                   hiding (span)
 
 
 -- | Run widgets in parallel and wait for all to produce a value
@@ -47,3 +49,7 @@ joinThem = (toList . Set.fromList . toList <$>) . andd' . Seq.fromList
               is' = Set.insert i is
           rest <- go xs' is'
           pure $ e <| rest
+
+tooltipped :: Text -> Widget HTML a -> Widget HTML a
+tooltipped tip w = span [classList [("tooltip", True)]]
+  [w, span [classList [("tooltiptext", True)]] [text tip]]
