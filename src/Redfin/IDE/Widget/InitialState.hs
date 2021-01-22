@@ -22,6 +22,7 @@ import           Control.ShiftMap
 import qualified Data.Aeson                 as A
 import           Data.Either                (lefts, rights)
 import           Data.Functor               (void)
+import           Data.List                  (union)
 import qualified Data.Map.Strict            as Map
 import           Data.Maybe                 (catMaybes, listToMaybe)
 import           Data.Monoid                (First (..))
@@ -37,6 +38,7 @@ import           Text.Read                  (readEither, readMaybe)
 import           ISA.Types
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
+import           ISA.Types.Symbolic.Parser
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
@@ -47,8 +49,8 @@ parseKey key =
                                     , F    <$> readMaybe key
                                     , Addr <$> readMaybe key]
 
-parseSym :: Text -> Key -> Maybe (Key, Sym)
-parseSym txt = \case
+parseValue :: Text -> Key -> Maybe (Key, Sym)
+parseValue txt = \case
   Reg r -> (Reg r,) <$>
     case readMaybe (Text.unpack txt) of
       Just v  -> Just . SConst . CInt32 $ v
@@ -65,12 +67,19 @@ parseSym txt = \case
 initStateWidget :: Context -> App Context
 initStateWidget ctx = do
   let relevant = fmap (Text.pack . show) $ Map.filterWithKey isRelevant (_bindings ctx)
-  buffer <- liftIO . atomically $ newTVar relevant
-  xs <- keyValsWidget buffer
-  let xs' = catMaybes . map (uncurry (flip parseSym)) . Map.toList $ xs
-  log I $ Text.pack (show xs')
+      cs = Map.fromList (_constraints ctx)
+  bufferBindings <- liftIO . atomically $ newTVar relevant
+  bufferConstraints <- liftIO . atomically $ newTVar cs
+  xs <- orr [ Left <$> keyValsWidget bufferBindings
+            , Right <$> constrWidget bufferConstraints]
+  let bindings = either id (const relevant) xs
+      constraints = either (const cs) id xs
+  let xs' = catMaybes . map (uncurry (flip parseValue)) . Map.toList $ bindings
+  -- log I $ Text.pack (show xs')
   pure (MkContext (Map.union (Map.fromList xs') (_bindings ctx))
-                  (SConst $ CBool True) (_constraints ctx) Nothing)
+                  (SConst $ CBool True)
+                  (union (_constraints ctx) (Map.assocs constraints) )
+                  Nothing)
   where isRelevant :: Key -> a -> Bool
         isRelevant k _ = case k of
           Reg _  -> True
@@ -81,13 +90,15 @@ initStateWidget ctx = do
 keyValsWidget :: TVar (Map.Map Key Text) -> App (Map.Map Key Text)
 keyValsWidget buffer = do
   ctx <- liftIO $ readTVarIO buffer
-  let inps = map (keyInp buffer) (Map.assocs ctx)
+  let inps = case (_activeExampleVal ?ide) of
+               None -> []
+               _    -> (map ((Just <$>) . keyInp buffer) (Map.assocs ctx))
+                    ++ [addBindingWidget buffer]
   t <- div [classList [ ("box", True)]]
              [ h3 [] [text "Initial State"]
              , div [classList [("initState", True)]] $
-                   map (Just <$>) inps ++
-                   [ addBindingWidget buffer
-                   , Nothing <$ button [onClick] [text "Update"]
+                   inps ++
+                   [Nothing <$ button [onClick] [text "Update"]
                    ]]
   case t of
     Just _  -> keyValsWidget buffer
@@ -139,3 +150,70 @@ addBindingWidget buffer = do
     Just key -> do
       liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert key value ctx)
       addBindingWidget buffer
+--------------------------------------------------------------------------------
+
+constrWidget :: TVar (Map.Map Text Sym) -> App (Map.Map Text Sym)
+constrWidget buffer = do
+  cs <- liftIO $ readTVarIO buffer
+  let inps = case (_activeExampleVal ?ide) of
+               None -> []
+               _    -> (map ((Just <$>) . constrInp buffer) (Map.assocs cs))
+                    ++ [Just <$> addConstraintWidget buffer]
+  t <- div [classList [ ("box", True)]]
+             [ h3 [] [text "Constraints"]
+             , div [classList [("initState", True)]] $
+                   inps ++
+                   [Nothing <$ button [onClick] [text "Update"]
+                   ]]
+  case t of
+    Just _  -> constrWidget buffer
+    Nothing -> liftIO $ readTVarIO buffer
+
+
+constrInp :: TVar (Map.Map Text Sym) -> (Text, Sym) -> Widget HTML (Text, Sym)
+constrInp buffer (name, expr) = do
+  let exprTxt = Text.pack $ show expr
+  new <- orr
+    [ span [classList [("initKey", True)]] [text name]
+    , span [classList [("initEq", True)]] [text " : "]
+    , span [classList [("initVal", True)]]
+          [input [ placeholder exprTxt
+                 , value exprTxt
+                 , targetValue . target <$> onChange
+                 ]
+          ]]
+  case parseSym (Text.unpack name) new of
+      Left err -> text err
+      Right sym -> do
+        liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert name sym ctx)
+        constrInp buffer (name, sym)
+
+addConstraintWidget :: TVar (Map.Map Text Sym) -> Widget HTML (Text, Sym)
+addConstraintWidget  buffer = do
+  name <- orr [ span [classList [("initKey", True)]]
+                [ input [ targetValue . target <$> onChange
+                                        , placeholder "Constraint name"
+                                        ]
+                ]
+             , span [classList [("initEq", True)]] [text " : "]
+             , span [classList [("initVal", True)]]
+                 [input [ disabled True
+                        , placeholder "Symbolic expression"
+                        ]
+                 ]
+             ]
+  expr <- orr [ span [classList [("initKey", True)]]
+                   [input [ disabled True, placeholder name]
+                   ]
+               , span [classList [("initEq", True)]] [text " : "]
+               , span [classList [("initVal", True)]]
+                     [input [ targetValue . target <$> onChange
+                            , placeholder ""
+                            ]
+                     ]
+               ]
+  case parseSym (Text.unpack name) expr of
+    Left err -> orr [text err, addConstraintWidget buffer]
+    Right sym -> do
+      liftIO . atomically $ modifyTVar' buffer (\buf -> Map.insert name sym buf)
+      addConstraintWidget buffer

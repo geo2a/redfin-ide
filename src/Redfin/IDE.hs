@@ -68,13 +68,14 @@ mkIDE ex logger =
 
 leftPane :: App a
 leftPane = do
+  let ctx = (_activeInitStateVal ?ide)
   newInitState <-
     div [classList [ ("pane", True)
                    , ("leftpane", True)
                    ]
         ]
         [ sourceWidget
-        , initStateWidget (_activeInitStateVal ?ide)
+        , initStateWidget ctx
         ]
   when (newInitState /= (_activeInitStateVal ?ide)) $
     liftIO . atomically $ putTMVar (_activeInitState ?ide) newInitState
@@ -108,7 +109,7 @@ elimEvent = \case
     pure (?ide {_stepsVal = steps})
   InitStateChanged ctx -> do
     log D $ "Init state changed"
-    let ide' = ?ide {_activeInitStateVal = ctx, _stepsVal = 0}
+    let ide' = ?ide {_activeInitStateVal = ctx}
     oldQueue <- liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
       cleanupQueues ide'
