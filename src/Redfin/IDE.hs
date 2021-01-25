@@ -68,18 +68,13 @@ mkIDE ex logger =
 
 leftPane :: App a
 leftPane = do
-  let ctx = (_activeInitStateVal ?ide)
-  newInitState <-
     div [classList [ ("pane", True)
                    , ("leftpane", True)
                    ]
         ]
         [ sourceWidget
-        , initStateWidget ctx
+        , initStateWidget (_activeInitStateVal ?ide)
         ]
-  when (newInitState /= (_activeInitStateVal ?ide)) $
-    liftIO . atomically $ putTMVar (_activeInitState ?ide) newInitState
-  leftPane
 
 data Event = Proceed
            | ExampleChanged Example

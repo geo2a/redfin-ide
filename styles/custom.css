@@ -264,3 +264,27 @@ button:hover {
 .tooltip:hover .tooltiptext {
   visibility: visible;
 }
+
+/* Close button*/
+.close {
+  opacity: 0.3;
+  margin: 0;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+.close:hover {
+  opacity: 1;
+}
+.close:before, .close:after {
+  position: absolute;
+  content: ' ';
+  height: 15px;
+  width: 2px;
+  background-color: #c23616;
+}
+.close:before {
+  transform: rotate(45deg);
+}
+.close:after {
+  transform: rotate(-45deg);
+}
