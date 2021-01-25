@@ -24,7 +24,8 @@ import           Data.Text                      (Text)
 import qualified Data.Text                      as Text
 import qualified Data.Text.Lazy.Builder         as Text
 import qualified Data.Text.Read                 as Text
-import           Prelude                        hiding (div, log, lookup, span)
+import           Prelude                        hiding (div, id, log, lookup,
+                                                 span)
 import           Replica.VDOM.Render            as Render
 import           Replica.VDOM.Types             (DOMEvent (getDOMEvent))
 import           Text.Read                      (readEither)
@@ -44,32 +45,32 @@ topPane =
                    ]
         ]
         [ examplesWidget
-        , symExecWidget
+        , symExecWidget (_stepsVal ?ide)
         , smtWidget
         ]
 
+newtype Focus = Focus Text
+
 -- | Specify the number of symbolic execution steps
-symExecWidget :: App a
-symExecWidget = do
+symExecWidget :: Steps -> App a
+symExecWidget steps = do
   log D "SymExec widget initialised"
-  let msg = Text.pack . show $ (_stepsVal ?ide)
+  let msg = Text.pack . show $ steps
   event <- div [classList [ ("widget", True), ("symExecWidget", True)]]
                [ h4 [] [text ("Symbolic simulator")]
-               , joinOrLast
-                        [ New <$> Text.unpack . targetValue . target <$>
-                            input [ placeholder msg, value "", onChange, autofocus True]
-                        , Old (_stepsVal ?ide) <$ button [onClick] [text "Run"]
-                        ]
+               ,  Just <$> Text.unpack . targetValue . target <$>
+                            input [placeholder msg, value msg, onChange]
+               , Nothing <$ button [onClick] [text "Run"]
                ]
-  let news = filter (\case New _ -> True
-                           _ -> False) event
-  case news of
-    [New e] -> case readEither e of
-      Left _      -> symExecWidget
-      Right steps -> do
-        liftIO . atomically $ putTMVar (_steps ?ide) steps
-        symExecWidget
-    _ -> symExecWidget
+  case event of
+    Just e ->
+      case readEither e of
+        Left _      -> symExecWidget steps
+        Right newSteps ->
+          symExecWidget newSteps
+    Nothing -> do
+      liftIO . atomically $ putTMVar (_steps ?ide) steps
+      symExecWidget steps
 
 -- | Handle SMT solving
 smtWidget :: App a

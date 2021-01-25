@@ -97,20 +97,18 @@ keyValsWidget buffer = do
   ctx <- liftIO $ readTVarIO buffer
   let inps = case (_activeExampleVal ?ide) of
                None -> []
-               _    -> (map ((Just <$>) . keyInp buffer) (Map.assocs ctx))
+               _    -> map (keyInp buffer) (Map.assocs ctx)
                     ++ [addBindingWidget buffer]
-  t <- div [classList [ ("box", True)]]
+  div [classList [ ("box", True)]]
              [ h3 [] [text "Initial State"]
              , div [classList [("initState", True)]] $
                    inps ++
-                   [Nothing <$ button [onClick] [text "Update"]
+                   [void $ button [onClick] [text "Update"]
                    ]]
-  case t of
-    Just _  -> keyValsWidget buffer
-    Nothing -> liftIO $ readTVarIO buffer
+  liftIO $ readTVarIO buffer
 
 
-keyInp :: TVar (Map.Map Key Text) -> (Key, Text) -> Widget HTML a
+keyInp :: TVar (Map.Map Key Text) -> (Key, Text) -> Widget HTML ()
 keyInp buffer (key, v) = do
   let keyTxt = Text.pack (show key)
   new <- orr
@@ -123,9 +121,8 @@ keyInp buffer (key, v) = do
                  ]
           ]]
   liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert key new ctx)
-  keyInp buffer (key, new)
 
-addBindingWidget :: TVar (Map.Map Key Text) -> Widget HTML (Maybe (WithKey Text))
+addBindingWidget :: TVar (Map.Map Key Text) -> Widget HTML ()
 addBindingWidget buffer = do
   let tip = "Type a key: register, address or flag"
   keyTxt <- orr [ span [classList [("initKey", True)]]
@@ -147,6 +144,7 @@ addBindingWidget buffer = do
                , span [classList [("initVal", True)]]
                      [input [ targetValue . target <$> onChange
                             , placeholder ""
+                            , autofocus True
                             ]
                      ]
                ]
@@ -154,7 +152,7 @@ addBindingWidget buffer = do
     Nothing -> addBindingWidget buffer
     Just key -> do
       liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert key value ctx)
-      addBindingWidget buffer
+
 --------------------------------------------------------------------------------
 
 constrWidget :: TVar (Map.Map Text Sym) -> App (Map.Map Text Sym)
@@ -199,8 +197,8 @@ addConstraintWidget :: TVar (Map.Map Text Sym) -> Widget HTML ()
 addConstraintWidget  buffer = do
   name <- orr [ span [classList [("initKey", True)]]
                 [ input [ targetValue . target <$> onChange
-                                        , placeholder "Constraint name"
-                                        ]
+                        , placeholder "Constraint name"
+                        ]
                 ]
              , span [classList [("initEq", True)]] [text " : "]
              , span [classList [("initVal", True)]]
@@ -216,6 +214,7 @@ addConstraintWidget  buffer = do
                , span [classList [("initVal", True)]]
                      [input [ targetValue . target <$> onChange
                             , placeholder ""
+                            , autofocus True
                             ]
                      ]
                ]
