@@ -4,10 +4,10 @@ body, html {
     margin: 0;
     font-size: 12pt;
     font-family: monospace;
+    box-sizing: border-box;
 }
 
 body {
-    margin:auto;
 }
 
 .pane {
@@ -28,24 +28,32 @@ body {
 
 .box {
     left: 10px;
-    margin : 10px;
+    padding : 10px;
     border: 1px solid grey;
 }
+
+$grid-gap: 10px;
+$header-height: 140px;
 
 .grid-container {
     display: grid;
     grid-template-columns: 1fr 2fr 1fr;
-    grid-template-rows: auto;
+    grid-template-rows: 1fr auto;
     grid-template-areas:
         "header header header"
         "leftpane middlepane rightpane";
-    gap: 10px;
+    gap: $grid-gap;
 }
 
 .toppane {
-    /* width: 100%; */
     grid-area: header;
-    height: 150px;
+    height: $header-height;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.toppane-contents {
     display: flex;
 }
 
@@ -55,16 +63,27 @@ body {
 
 .leftpane {
     grid-area: leftpane;
+    align-self: start;
+    position: sticky;
+    top: $header-height + $grid-gap + 6;
+    z-index: 1;
 }
 
 .middlepane {
     grid-area: middlepane;
+    // position: absolute;
+    // width: 90%;
+    // top: 200px;
+    z-index: 0;
 }
 
 .rightpane {
     grid-area: rightpane;
+    align-self: start;
+    position: sticky;
+    top: $header-height + $grid-gap + 6;
+    z-index: 1;
 }
-
 
 .widget {
     margin: 5px;

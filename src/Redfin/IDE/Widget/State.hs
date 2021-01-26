@@ -47,14 +47,15 @@ stateWidget = do
       log D $ "displaying state for node " <> Text.pack (show n)
       trace <- liftIO $ readTVarIO (_trace ?ide)
 
-      ev <- div [classList [ ("pane", True)
-                           , ("rightpane", True)
-                           ]
-                ]
-                [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
-                , displayContext (lookup n trace)
-                , Right <$> (liftIO . atomically $ readTQueue (_activeNodeQueue ?ide))
-                ]
+      ev <-  section [classList [ ("pane", True)
+                   , ("rightpane", True)
+                   ]]
+               [ div [classList [ ("rightpane-contents", True)]]
+                   [ h3 [] [ text $ "State in node " <> Text.pack (show n) <> ": "]
+                   , displayContext (lookup n trace)
+                   , Right <$> (liftIO . atomically $ readTQueue (_activeNodeQueue ?ide))
+                   ]
+               ]
       case ev of
         Left _   -> widget n
         Right n' -> widget n'

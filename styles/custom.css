@@ -4,10 +4,8 @@ body, html {
   height: 100%;
   margin: 0;
   font-size: 12pt;
-  font-family: monospace; }
-
-body {
-  margin: auto; }
+  font-family: monospace;
+  box-sizing: border-box; }
 
 .pane {
   background-color: #d1d8e0;
@@ -23,33 +21,46 @@ body {
 
 .box {
   left: 10px;
-  margin: 10px;
+  padding: 10px;
   border: 1px solid grey; }
 
 .grid-container {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
-  grid-template-rows: auto;
+  grid-template-rows: 1fr auto;
   grid-template-areas: "header header header" "leftpane middlepane rightpane";
   gap: 10px; }
 
 .toppane {
-  /* width: 100%; */
   grid-area: header;
-  height: 150px;
+  height: 140px;
+  position: sticky;
+  top: 0;
+  z-index: 1; }
+
+.toppane-contents {
   display: flex; }
 
 .toppane ul {
   list-style-type: none; }
 
 .leftpane {
-  grid-area: leftpane; }
+  grid-area: leftpane;
+  align-self: start;
+  position: sticky;
+  top: 156px;
+  z-index: 1; }
 
 .middlepane {
-  grid-area: middlepane; }
+  grid-area: middlepane;
+  z-index: 0; }
 
 .rightpane {
-  grid-area: rightpane; }
+  grid-area: rightpane;
+  align-self: start;
+  position: sticky;
+  top: 156px;
+  z-index: 1; }
 
 .widget {
   margin: 5px;

@@ -40,14 +40,13 @@ data SMTAction = SolvePressed
 -- | Top pane of the IDE and its widgets
 topPane :: App a
 topPane =
-    div [classList [ ("pane", True)
-                   , ("toppane", True)
-                   ]
-        ]
+  section [classList [ ("pane", True), ("toppane", True)]]
+    [ div [classList [ ("toppane-contents", True)]]
         [ examplesWidget
         , symExecWidget (_stepsVal ?ide)
         , smtWidget
         ]
+    ]
 
 newtype Focus = Focus Text
 

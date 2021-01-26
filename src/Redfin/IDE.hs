@@ -68,13 +68,14 @@ mkIDE ex logger =
 
 leftPane :: App a
 leftPane = do
-    div [classList [ ("pane", True)
+  section [classList [ ("pane", True)
                    , ("leftpane", True)
-                   ]
-        ]
-        [ sourceWidget
-        , initStateWidget (_activeInitStateVal ?ide)
-        ]
+                   ]]
+    [ div [classList [ ("leftpane-contents", True)]]
+          [ sourceWidget
+          , initStateWidget (_activeInitStateVal ?ide)
+          ]
+    ]
 
 data Event = Proceed
            | ExampleChanged Example
@@ -129,8 +130,8 @@ elimEvent = \case
 
 ideWidget :: App a
 ideWidget = do
-  event <- MultiAlternative.orr
-      [ Proceed <$ div [classList [("grid-container", True)]]
+  event <- div [classList [("grid-container", True)]]
+      [ Proceed <$ MultiAlternative.orr
                        [ topPane
                        , leftPane
                        , traceWidget
