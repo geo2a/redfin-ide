@@ -49,4 +49,4 @@ traceWidget = widget
                      , ("middlepane", True)
                      ]
           ]
-          [pre [] [htmlTrace trace]]
+          [htmlTrace trace]

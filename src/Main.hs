@@ -13,6 +13,7 @@ import qualified Network.Wai                   as Wai
 import qualified Network.Wai.Middleware.Static as Static
 import           Network.WebSockets            (defaultConnectionOptions)
 import           Text.Read                     (readMaybe)
+import qualified Text.Sass                     as CSS
 
 import           Redfin.IDE
 import           Redfin.IDE.Types
@@ -69,10 +70,13 @@ index =
     fl = Map.fromList
 
 main :: IO ()
-main = run
-  8080
-  index
-  defaultConnectionOptions
-  static $ \_ -> do
-    ide <- liftIO $ mkIDE None simpleMessageAction
-    let ?ide = ide in ideWidget
+main = do
+  CSS.compileFile "styles/source.scss" CSS.defaultSassOptions >>=
+    \case Left err -> print err
+          Right css -> writeFile "styles/custom.css" (CSS.resultString css)
+  run 8080
+      index
+      defaultConnectionOptions
+      static $ \_ -> do
+        ide <- liftIO $ mkIDE None simpleMessageAction
+        let ?ide = ide in ideWidget
