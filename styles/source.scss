@@ -279,6 +279,7 @@ button:hover {
 /* Trace tree */
 $border-width: 1px;
 $tree-width: .1em;
+$unreachable-grey: #7f8fa6;
 
 .tree ul {
     position: relative;
@@ -286,14 +287,15 @@ $tree-width: .1em;
     white-space: nowrap;
     margin: 0 auto;
     text-align: center;
-    &::after {
-        content: '';
-        display: table;
-        clear: both;
-    }
+    // &::after {
+    //     content: '';
+    //     display: table;
+    //     clear: both;
+    // }
 }
 
-.tree li {
+// display nodes as rounded squares
+.tree .node {
     display: inline-block; // need white-space fix
     vertical-align: top;
     text-align: center;
@@ -302,21 +304,6 @@ $tree-width: .1em;
     // controls tree width
     padding: 1em $tree-width 0 $tree-width;
 
-    &::before,
-    &::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 50%;
-        border-top: $border-width solid #000;
-        width: 50%;
-        height: 1em;
-    }
-    &::after {
-        right: auto;
-        left: 50%;
-        border-left: $border-width solid #000;
-    }
     &:only-child::after,
     &:only-child::before {
         display: none;
@@ -328,56 +315,81 @@ $tree-width: .1em;
     &:last-child::after {
         border: 0 none;
     }
-    &:last-child::before{
+    &:first-child::before,
+    &:last-child::before {
+        border-top: $border-width solid #000;
+        content: '';
+        position: absolute;
+        top: 0;
+        width: 50%;
+        height: 1em;
+    }
+    &:first-child::before {
+        border-left: $border-width solid #000;
+        border-radius: 5px 0 0 0;
+        right: 0;
+    }
+    &:last-child::before {
         border-right: $border-width solid #000;
         border-radius: 0 5px 0 0;
+        left: 0;
     }
-    &:first-child::after{
-        border-radius: 5px 0 0 0;
+    &:first-child.unreachable::before,
+    &:last-child.unreachable::before{
+        border-color: $unreachable-grey;
+    }
+    &:first-child.hidden::before,
+    &:last-child.hidden::before{
+        display:none;
+    }
+    &.has-hidden-children .node {
+        padding-top: 0;
+    }
+    &.has-hidden-children .node::before {
+        display:none;
+    }
+    & a {
+        border: $border-width solid #000;
+        padding: .25em .35em;
+        text-decoration: none;
+        display: inline-block;
+        border-radius: 5px;
+        color: #333;
+        position: relative;
+        top: $border-width;
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: -1em;
+            left: 50%;
+            border-left: $border-width solid #000;
+            width: 0;
+            height: 1em;
+        }
+    }
+    & .unreachable a::after {
+        border-left: $border-width solid $unreachable-grey;
+    }
+    & .leaf a::after {
+        display: none;
     }
 }
 
-// the vertical line descending from parent to a single child
-.tree ul ul::before{
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    border-left: $border-width solid #000;
-    width: 0;
-    height: 1em;
-}
 
-// display nodes as rounded squares
-.tree li a {
-    border: $border-width solid #000;
-    padding: .25em .35em;
-    text-decoration: none;
-    display: inline-block;
-    border-radius: 5px;
-    color: #333;
-    position: relative;
-    top: $border-width;
-}
+
 
 // Highlight nodes on hover
-.tree li a:hover {
+.tree .node a:hover {
     background: #e9453f;
     color: #fff;
     border: $border-width solid #e9453f;
 }
 
-/* Trace styling */
-.node {
-    color:       grey;
+.tree .node .unreachable a {
+    color: $unreachable-grey;
+    border-color: $unreachable-grey;
 }
 
-.reachable {
-    color: black;
-}
-.shown {
-    display: inline;
-}
-.hidden {
+.tree .node .hidden {
     display: none;
 }

@@ -35,72 +35,30 @@ enumTree = flip evalState 0 . traverse count
 
 node :: (Context, Int) -> App a
 node args@(ctx, n) = do
-  ev <- a [classList [ ("node", True)
-                  , ("interactive", True)
-                  , ("expanded", True)
-                  , ("reachable", isReachable ctx)
-                  , ("hidden", (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide))
-                  ]
-             , id ("node" <> (Text.pack . show $ n))
-             , href "#"
-             , Right <$> onClick
-             ]
-             [ text (Text.pack . show $ n)]
+  ev <- a [ Just <$> onClick]
+          [ text (Text.pack . show $ n)]
   case ev of
-    Left e  -> node args
-    Right e -> do
-      log D $ "Click on node " <> Text.pack (show n)
+    Nothing  -> node args
+    Just e -> do
       liftIO . atomically $
         writeTQueue (_activeNodeQueue ?ide) n
       log D $ "Active node changed to " <> Text.pack (show n)
       node args
 
 htmlTree :: Tree.Tree (Context, Int) -> App a
-htmlTree (Tree.Node (ctx,i) []) = li [] [node (ctx, i)]
-htmlTree (Tree.Node n ns)
-    = li [] [node n, ul [] (map htmlTree ns)]
+htmlTree (Tree.Node n@(ctx,i) ns) =
+  case ns of
+    []       -> li [classList $ ("leaf", True):cs] [node n]
+    children -> li [classList cs] [node n, ul [] (map htmlTree children)]
+  where cs = [ ("node", True)
+             , ("reachable", isReachable ctx)
+             , ("unreachable", not $ isReachable ctx)
+             , ("hidden", (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide))
+             , ("has-hidden-children",
+                any (\(Tree.Node (ctx, _) _) -> (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
+             ]
 
 htmlTrace :: Trace Context -> App a
 htmlTrace (Trace tree) =
   div [classList [("tree", True)]]
   [ ul [] [htmlTree . enumTree . fmap _nodeBody $ tree]]
-
--- <div class="tree">
--- 	<ul>
---   <li>
---     <a href="#">Parent</a>
---     <ul>
---       <li>
---         <a href="#">Child</a>
---         <ul>
---           <li>
---             <a href="#">Grand Child</a>
---           </li><li>
---             <a href="#">Grand Child</a>
---             <ul>
---               <li>
---                 <a href="#">Grand Child</a>
---               </li><li>
---                 <a href="#">Grand Child</a>
---               </li>
---             </ul>
---           </li>
---         </ul>
---       </li><li>
---         <a href="#">Child</a>
---         <ul>
---           <li>
---             <a href="#">Grand Child</a>
---             <ul>
---               <li>
---                 <a href="#">Grand Grand Child</a>
---               </li>
---             </ul>
---           </li><li>
---             <a href="#">Grand Child</a>
---           </li>
---         </ul>
---       </li>
---     </ul>
---   </li>
--- </ul>
