@@ -34,8 +34,10 @@ import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.Top.Examples
 
-data SMTAction = SolvePressed
-               | DisplayUnreachableToggled
+data Action = StepsChanged String
+            | TimeoutChanged String
+            | RunPressed
+            | DisplayUnreachableToggled
 
 -- | Top pane of the IDE and its widgets
 topPane :: App a
@@ -43,56 +45,76 @@ topPane =
   section [classList [ ("pane", True), ("toppane", True)]]
     [ div [classList [ ("toppane-contents", True)]]
         [ examplesWidget
-        , symExecWidget (_stepsVal ?ide)
-        , smtWidget
+        , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
         ]
     ]
 
-newtype Focus = Focus Text
-
 -- | Specify the number of symbolic execution steps
-symExecWidget :: Steps -> App a
-symExecWidget steps = do
+symExecWidget :: Steps -> Int -> App a
+symExecWidget steps timeout = do
   log D "SymExec widget initialised"
-  let msg = Text.pack . show $ steps
-  event <- div [classList [ ("widget", True), ("symExecWidget", True)]]
-               [ h4 [] [text ("Symbolic simulator")]
-               ,  Just <$> Text.unpack . targetValue . target <$>
-                            input [placeholder msg, value msg, onChange]
-               , Nothing <$ button [onClick] [text "Run"]
-               ]
-  case event of
-    Just e ->
+  widget >>= \case
+    StepsChanged e ->
       case readEither e of
-        Left _      -> symExecWidget steps
+        Left _      -> symExecWidget steps timeout
         Right newSteps ->
-          symExecWidget newSteps
-    Nothing -> do
-      liftIO . atomically $ putTMVar (_steps ?ide) steps
-      symExecWidget steps
-
--- | Handle SMT solving
-smtWidget :: App a
-smtWidget = do
-  log D "SMT widget initialised"
-  e <- div [classList [ ("widget", True), ("SMTWidget", True)
-                      ]
-           ]
-           [ h4 [] [text "SMT Solver"]
-           , SolvePressed <$ button [onClick] [text "Solve"]
-           , DisplayUnreachableToggled <$
-             label [] [ input [type_ "checkbox", checked (_displayUnreachableVal ?ide), onClick]
-                      , text "Display unreachable"]
-           ]
-  case e of
-    SolvePressed -> do
-      div [classList [ ("widget", True), ("SMTWidget", True)
-                     ]
-          ] [ liftIO . atomically $ putTMVar (_solving ?ide) ()
-            , text "Solving..."]
-      smtWidget
+          symExecWidget newSteps timeout
+    StepsChanged e ->
+      case readEither e of
+        Left _      -> symExecWidget steps timeout
+        Right newTimeout ->
+          symExecWidget steps newTimeout
+    RunPressed -> do
+      div [classList [ ("widget", True), ("symExecWidget", True)]]
+          [ h4 [] [ text ("Symbolic simulator")]
+          , liftIO . atomically $ putTMVar (_steps ?ide) steps
+          , text "Executing..."]
+      symExecWidget steps timeout
     DisplayUnreachableToggled -> do
       let display' = not (_displayUnreachableVal ?ide)
           ide' = ?ide {_displayUnreachableVal = display'}
       liftIO . atomically $ putTMVar (_displayUnreachable ?ide) display'
-      let ?ide = ide' in smtWidget
+      let ?ide = ide' in symExecWidget steps timeout
+  where
+    stepsTxt = Text.pack . show $ steps
+    timeoutTxt = Text.pack . show $ timeout
+    widget =
+      div [classList [ ("widget", True), ("symExecWidget", True)]]
+          [ h4 [] [text ("Symbolic simulator")]
+          , StepsChanged <$> Text.unpack . targetValue . target <$>
+                       p [] [ label [] [text "Steps: "]
+                            , input [placeholder stepsTxt, value stepsTxt, onChange]
+                            ]
+          , TimeoutChanged <$> Text.unpack . targetValue . target <$>
+                       p [] [ label [] [text "Timeout (s): "]
+                            , input [placeholder timeoutTxt, value timeoutTxt, onChange]
+                            ]
+          , RunPressed <$ button [onClick] [text "Run"]
+          , DisplayUnreachableToggled <$
+              label [] [ input [type_ "checkbox", checked (_displayUnreachableVal ?ide), onClick]
+                       , text "Display unreachable"]
+          ]
+
+-- -- | Handle SMT solving
+-- smtWidget :: App a
+-- smtWidget = do
+--   log D "SMT widget initialised"
+--   e <- div [classList [ ("widget", True), ("SMTWidget", True)
+--                       ]
+--            ]
+--            [ h4 [] [text "SMT Solver"]
+--            , SolvePressed <$ button [onClick] [text "Solve"]
+--            ,
+--            ]
+--   case e of
+--     SolvePressed -> do
+--       div [classList [ ("widget", True), ("SMTWidget", True)
+--                      ]
+--           ] [ liftIO . atomically $ putTMVar (_solving ?ide) ()
+--             , text "Solving..."]
+--       smtWidget
+--     DisplayUnreachableToggled -> do
+--       let display' = not (_displayUnreachableVal ?ide)
+--           ide' = ?ide {_displayUnreachableVal = display'}
+--       liftIO . atomically $ putTMVar (_displayUnreachable ?ide) display'
+--       let ?ide = ide' in smtWidget

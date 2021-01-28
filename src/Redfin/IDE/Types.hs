@@ -64,6 +64,9 @@ data IDEState =
            , _steps                 :: TMVar Steps
            , _stepsVal              :: Steps
 
+           , _timeout               :: TMVar Int
+           , _timeoutVal            :: Int
+
            , _activeNodeQueue       :: TQueue NodeId
 
            , _activeExample         :: TMVar Example
@@ -76,7 +79,7 @@ data IDEState =
            , _runSymExec            :: Steps -> Context -> IO (Trace Context)
 
            , _solving               :: TMVar ()
-           , _solve                 :: Trace Context -> IO (Trace Context)
+           -- , _solve                 :: Trace Context -> IO (Trace Context)
 
 
            , _logger                :: LogAction (Widget HTML) Message
@@ -99,6 +102,9 @@ emptyIDE logger = do
   steps  <- newEmptyTMVarIO
   let stepsVal = 0
 
+  timeout <- newEmptyTMVarIO
+  let timeoutVal = 100
+
   activeNodeQueue <- newTQueueIO
 
   activeExample <- newEmptyTMVarIO
@@ -111,7 +117,6 @@ emptyIDE logger = do
       runSymExec = \_ _ -> pure emptyTrace
 
   solving <- newEmptyTMVarIO
-  let solve = \_ -> pure emptyTrace
 
   pure $ IDEState
     trace
@@ -120,6 +125,9 @@ emptyIDE logger = do
 
     steps
     stepsVal
+
+    timeout
+    timeoutVal
 
     activeNodeQueue
 
@@ -133,7 +141,6 @@ emptyIDE logger = do
     runSymExec
 
     solving
-    solve
 
     logger
 

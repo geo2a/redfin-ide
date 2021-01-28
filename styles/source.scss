@@ -219,12 +219,26 @@ button:hover {
 /*         margin-top: 10px; */
 /* } */
 
-.SMTWidget label {
-    font-size: 10pt;
-}
 
-.symExecWidget input {
-    width: 4em;
+.symExecWidget {
+    width: 200px;
+    & p {
+        margin: 0; padding: 0;
+        display: block;
+    }
+    & input {
+        width: 4em;
+    }
+    & input[type=checkbox] {
+        width: 1em;
+    }
+    & label {
+      font-size: 10pt;
+    }
+    & button {
+        display: block;
+        width: 100x;
+    }
 }
 
 .tooltip {

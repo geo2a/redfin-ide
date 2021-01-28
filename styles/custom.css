@@ -172,11 +172,21 @@ button:hover {
 /*         width: 75%; */
 /*         margin-top: 10px; */
 /* } */
-.SMTWidget label {
-  font-size: 10pt; }
-
-.symExecWidget input {
-  width: 4em; }
+.symExecWidget {
+  width: 200px; }
+  .symExecWidget p {
+    margin: 0;
+    padding: 0;
+    display: block; }
+  .symExecWidget input {
+    width: 4em; }
+  .symExecWidget input[type=checkbox] {
+    width: 1em; }
+  .symExecWidget label {
+    font-size: 10pt; }
+  .symExecWidget button {
+    display: block;
+    width: 100x; }
 
 .tooltip {
   position: relative;

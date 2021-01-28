@@ -80,6 +80,7 @@ leftPane = do
 data Event = Proceed
            | ExampleChanged Example
            | StepsChanged Steps
+           | TimeoutChanged Int
            | InitStateChanged Context
            | SolveButtonPressed
            | TraceDisplayToggled
@@ -103,6 +104,9 @@ elimEvent = \case
       cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     pure (?ide {_stepsVal = steps})
+  TimeoutChanged timeout -> do
+    log D $ "Timeout changed to " <> Text.pack (show timeout)
+    pure (?ide {_timeoutVal = timeout})
   InitStateChanged ctx -> do
     log D $ "Init state changed"
     let ide' = ?ide {_activeInitStateVal = ctx}
@@ -113,9 +117,8 @@ elimEvent = \case
   SolveButtonPressed -> do
     log D $ "Solve button pressed"
     trace <- liftIO . atomically $ readTVar (_trace ?ide)
-    solvedTrace <- liftIO $ (_solve ?ide) trace
     oldQueue <- liftIO . atomically $ do
-      writeTVar (_trace ?ide) solvedTrace
+      writeTVar (_trace ?ide) trace
       cleanupQueues ?ide
     log D $ "Trace solved"
     pure ?ide
@@ -139,6 +142,7 @@ ideWidget = do
 
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
+      , TimeoutChanged <$> (liftIO . atomically . takeTMVar $ _timeout ?ide)
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
       , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solving ?ide)
       , TraceDisplayToggled <$ (liftIO . atomically . takeTMVar $ _displayUnreachable ?ide)
