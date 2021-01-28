@@ -53,7 +53,7 @@ data Example = None
              | Add
              | Sum
              -- | ExampleGCD
-             -- | ExampleMotor
+             | MotorLoop
              deriving (Show, Eq)
 
 data IDEState =

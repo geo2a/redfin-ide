@@ -41,7 +41,9 @@ sourceWidget =
   div [classList [ ("box", True)
                  , ("sourceCode", True)]]
     [ h3 [] [text "Source code"]
-    , ol [] (map (li [] . (:[]) . text) src)
+    , ol [] (map (li [] . (:[]) . text)
+             (if length src < 30 then src
+              else ["src is " <> Text.pack (show $ length src) <> " lines loong"]))
     ]
   where src :: [Text.Text]
         src = map (Text.pack . show . snd) $ assemble (_source ?ide)

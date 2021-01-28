@@ -75,6 +75,7 @@ $header-height: 140px;
     // width: 90%;
     // top: 200px;
     z-index: 0;
+    overflow: scroll;
 }
 
 .rightpane {
@@ -181,7 +182,7 @@ button:hover {
 
 .initState {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: fit-content(20%) 20px fit-content(40%);
     grid-template-rows: auto;
     /* gap: 10px; */
     /* grid-template-areas: */
@@ -208,9 +209,10 @@ button:hover {
 /*     padding-bottom: 10px; */
 /* } */
 
-/* .initState input { */
-/*     width: 5em; */
-/* } */
+.initVal input {
+    /* width: fit-content; */
+   width: 200px;
+}
 
 /* .initState button { */
 /*         width: 75%; */

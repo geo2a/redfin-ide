@@ -36,6 +36,7 @@ import           Redfin.IDE.Widget
 
 import           ISA.Backend.Symbolic.List.QueryRun (runModel)
 import qualified ISA.Example.Add                    as EAdd
+import qualified ISA.Example.MotorControl           as ELoop
 import qualified ISA.Example.Sum                    as ESum
 import           ISA.Types.Symbolic.Trace           (solveTrace)
 
@@ -54,8 +55,16 @@ swapExample ide = \case
              , _solve = solveTrace
              , _activeExampleVal = Sum
              , _stepsVal = 0
-             , _activeInitStateVal = ESum.initContext
+             , _activeInitStateVal = ESum.initCtx
              }
+  MotorLoop ->
+    ide { _source = ELoop.mc_loop
+        , _runSymExec = runModel
+        , _solve = solveTrace
+        , _activeExampleVal = MotorLoop
+        , _stepsVal = 0
+        , _activeInitStateVal = ELoop.initCtx
+        }
 
 examplesWidget :: App a
 examplesWidget = do
@@ -65,6 +74,7 @@ examplesWidget = do
            , div [classList [("examples", True)]]
                  [ exampleButton Add
                  , exampleButton Sum
+                 , exampleButton MotorLoop
                  ]
            ]
   liftIO . atomically $ putTMVar (_activeExample ?ide) e
