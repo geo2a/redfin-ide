@@ -98,11 +98,12 @@ elimEvent = \case
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
-    trace <- liftIO $ _runSymExec ?ide steps (_activeInitStateVal ?ide)
+    (stats, trace) <- liftIO $ _runSymExec ?ide steps (_activeInitStateVal ?ide)
     oldQueue <- liftIO . atomically $ do
       writeTVar (_trace ?ide) trace
       cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
+    log I $ "Stats: " <> (Text.pack . show $ stats)
     pure (?ide {_stepsVal = steps})
   TimeoutChanged timeout -> do
     log D $ "Timeout changed to " <> Text.pack (show timeout)

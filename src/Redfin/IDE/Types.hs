@@ -29,6 +29,7 @@ import           ISA.Assembly
 import           ISA.Types
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
+import           ISA.Types.Symbolic.SMT
 import           ISA.Types.Symbolic.Trace
 
 -- | Either-like datatype for tracking new/old content of tags
@@ -76,7 +77,7 @@ data IDEState =
            , _activeInitStateVal    :: Context
 
            , _source                :: Script
-           , _runSymExec            :: Steps -> Context -> IO (Trace Context)
+           , _runSymExec            :: Steps -> Context -> IO (SymExecStats, Trace Context)
 
            , _solving               :: TMVar ()
            -- , _solve                 :: Trace Context -> IO (Trace Context)
@@ -92,6 +93,9 @@ emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
 
 emptyTrace :: Trace Context
 emptyTrace = mkTrace (Node 0 emptyCtx) []
+
+emptyStats :: SymExecStats
+emptyStats = MkSymExecStats 0
 
 emptyIDE :: LogAction (Widget HTML) Message -> IO IDEState
 emptyIDE logger = do
@@ -114,7 +118,7 @@ emptyIDE logger = do
   let activeInitStateVal = emptyCtx
 
   let source = pure ()
-      runSymExec = \_ _ -> pure emptyTrace
+      runSymExec = \_ _ -> pure (emptyStats, emptyTrace)
 
   solving <- newEmptyTMVarIO
 
