@@ -43,7 +43,7 @@ data Action = StepsChanged String
 topPane :: App a
 topPane =
   section [classList [ ("pane", True), ("toppane", True)]]
-    [ div [classList [ ("toppane-contents", True)]]
+    [ div [classList [ ("contents", True)]]
         [ examplesWidget
         , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
         ]
@@ -65,7 +65,7 @@ symExecWidget steps timeout = do
         Right newTimeout ->
           symExecWidget steps newTimeout
     RunPressed -> do
-      div [classList [ ("widget", True), ("symExecWidget", True)]]
+      div [classList [ ("box", True), ("symExecWidget", True)]]
           [ h4 [] [ text ("Symbolic simulator")]
           , liftIO . atomically $ putTMVar (_steps ?ide) steps
           , text "Executing..."]
@@ -79,7 +79,7 @@ symExecWidget steps timeout = do
     stepsTxt = Text.pack . show $ steps
     timeoutTxt = Text.pack . show $ timeout
     widget =
-      div [classList [ ("widget", True), ("symExecWidget", True)]]
+      div [classList [ ("box", True), ("symExecWidget", True)]]
           [ h4 [] [text ("Symbolic simulator")]
           , StepsChanged <$> Text.unpack . targetValue . target <$>
                        p [] [ label [] [text "Steps: "]

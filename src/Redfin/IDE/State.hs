@@ -15,6 +15,7 @@ import           Prelude                      hiding (div, id, span)
 
 import           ISA.Types
 import           ISA.Types.Instruction.Decode (toInstruction)
+import           ISA.Types.SBV
 import           ISA.Types.Symbolic           (Sym (..))
 import           ISA.Types.Symbolic.Context   hiding (showIR)
 import           ISA.Types.Symbolic.Trace
@@ -29,28 +30,25 @@ showIR v =
 
 fancyPathConstraint :: Sym -> Widget HTML a
 fancyPathConstraint =
-  ul [classList [("pathConstraint" , True)]] .
+  ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
   reverse . map conjunct . splitToplevelConjs
 
 fancyConstraints :: [(Text, Sym)] -> Widget HTML a
 fancyConstraints =
-  ul [classList [("pathConstraint" , True)]] .
+  ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
   reverse . map (conjunct . snd)
 
-fancySolution :: Maybe SBV.SatResult -> Widget HTML a
+fancySolution :: Maybe SMTResult -> Widget HTML a
 fancySolution = \case
   Nothing -> text "Not solved: press solve to start"
-  Just s@(SBV.SatResult r) -> case r of
-    SBV.Unsatisfiable _ _   -> text . Text.pack . show $ s
-    SBV.Satisfiable _ model -> text . Text.pack . show $ s
-    -- DeltaSat      SMTConfig (Maybe String) SMTModel
-    -- SatExtField   SMTConfig SMTModel
-    -- Unknown       SMTConfig SMTReasonUnknown
-    -- ProofError    SMTConfig [String] (Maybe SMTResult)
-    _                       -> error "fancySolution: not implemented"
-
+  Just (Unsatisfiable    ) -> text "Unsatisfiable"
+  Just (Satisfiable (MkSMTModel model)) ->
+    div [] [ h5 [] [text "Satisfiable"]
+           , ul [] (map (\(name,x) ->
+                    li [] [text . Text.pack $ name <> " = " <> show x]) model)
+           ]
 
 
 -- | Any path constrain will ALWAYS be a left-associated conjunction
@@ -120,17 +118,17 @@ displayContext x =
                 h4 [] [text "Flags"],
                 ul []
                   [ li [] [keyTag (F Halted), span [] [text $ " : " <> h]]
-                  , li [] [keyTag (F Condition), span [] [text $ " : " <> c]
-                  , li [] [keyTag (F Overflow), span [] [text $ " : " <> o]]]
+                  , li [] [keyTag (F Condition), span [] [text $ " : " <> c]]
+                  , li [] [keyTag (F Overflow), span [] [text $ " : " <> o]]
                   ]
                 ]
             , li [] [
                 h4 [] [text "Registers"],
                 ul []
                   [ li [] [keyTag (Reg R0), span [] [text $ " : " <> r0]]
-                  , li [] [keyTag (Reg R1), span [] [text $ " : " <> r1]
+                  , li [] [keyTag (Reg R1), span [] [text $ " : " <> r1]]
                   , li [] [keyTag (Reg R2), span [] [text $ " : " <> r2]]
-                  , li [] [keyTag (Reg R3), span [] [text $ " : " <> r3]]]
+                  , li [] [keyTag (Reg R3), span [] [text $ " : " <> r3]]
                   ]
                 ]
             , li [] [

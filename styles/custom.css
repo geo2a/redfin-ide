@@ -5,24 +5,39 @@ body, html {
   margin: 0;
   font-size: 12pt;
   font-family: monospace;
-  box-sizing: border-box; }
+  box-sizing: border-box;
+  background-color: #fdf6e3; }
 
 .pane {
-  background-color: #d1d8e0;
+  background-color: #fdf6e3;
   border-style: solid;
-  border-width: 3px;
-  border-radius: 3px;
-  border-color: #a5b1c2;
+  border-width: 1px;
+  border-radius: 1px;
+  border-color: #586e75;
   padding: 0px;
   margin: 0px; }
 
-.pane h3 {
-  margin: 0px; }
-
 .box {
-  left: 10px;
-  padding: 10px;
-  border: 1px solid grey; }
+  border: 1px solid #93a1a1;
+  margin: 5px; }
+  .box h3 {
+    margin: 0; }
+  .box h4 {
+    margin: 0; }
+  .box ul {
+    margin: 10px;
+    padding: 0;
+    list-style: none; }
+  .box ol {
+    margin: 0; }
+  .box li {
+    margin: 0;
+    padding: 0;
+    padding-left: 10px; }
+
+input {
+  background-color: #eee8d5;
+  border: 1px solid #93a1a1; }
 
 .grid-container {
   display: grid;
@@ -37,18 +52,16 @@ body, html {
   position: sticky;
   top: 0;
   z-index: 1; }
-
-.toppane-contents {
-  display: flex; }
-
-.toppane ul {
-  list-style-type: none; }
+  .toppane .contents {
+    display: flex; }
+  .toppane ul {
+    list-style-type: none; }
 
 .leftpane {
   grid-area: leftpane;
   align-self: start;
   position: sticky;
-  top: 156px;
+  top: 150px;
   z-index: 1; }
 
 .middlepane {
@@ -60,118 +73,57 @@ body, html {
   grid-area: rightpane;
   align-self: start;
   position: sticky;
-  top: 156px;
+  top: 150px;
   z-index: 1; }
-
-.widget {
-  margin: 5px;
-  padding: 5px;
-  height: 80%;
-  width: 200px;
-  border: 1px solid grey; }
-
-.widget h4 {
-  margin: 0px; }
-
-.widget button {
-  margin-top: 5px;
-  width: 100%; }
-
-ul .pathConstraint {
-  position: relative;
-  list-style: none;
-  margin-left: 0;
-  padding-left: 1.2em; }
-
-ul .pathConstraint li:before {
-  content: "∧";
-  position: absolute;
-  left: 0; }
+  .rightpane .constraint {
+    position: relative;
+    list-style: none;
+    margin-left: 0;
+    padding-left: 1.2em; }
+    .rightpane .constraint li:before {
+      content: "∧";
+      position: absolute;
+      left: 0; }
 
 button {
-  box-shadow: inset 0px 1px 0px 0px #ffffff;
   background: linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
   background-color: #ededed;
-  border-radius: 6px;
-  border: 1px solid #dcdcdc;
+  border: 1px solid #657b83;
   display: inline-block;
   cursor: pointer;
-  color: #777777;
+  color: #657b83;
   font-family: Arial;
   font-size: 15px;
   font-weight: bold;
   padding: 6px 24px;
-  text-decoration: none;
-  text-shadow: 0px 1px 0px #ffffff; }
+  margin: 0 2px 2px 0;
+  text-decoration: none; }
 
 button:hover {
-  background: linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
-  background-color: #b8e356; }
-
-.examplesWidget ul {
-  padding-left: 0; }
-
-.examplesWidget ul li {
-  margin-bottom: 20px; }
+  background: linear-gradient(to top, #ededed 5%, #a5cc52 100%);
+  background-color: #a5cc52; }
 
 .examples {
   display: flex;
-  flex-wrap: wrap; }
-
-.exampleButton {
-  box-shadow: inset 0px 1px 0px 0px #ffffff;
-  background: linear-gradient(to bottom, #ededed 5%, #dfdfdf 100%);
-  background-color: #ededed;
-  border-radius: 6px;
-  border: 1px solid #dcdcdc;
-  cursor: pointer;
-  color: #777777;
-  font-family: Arial;
-  font-size: 15px;
-  font-weight: bold;
-  padding: 6px 24px;
-  text-decoration: none;
-  text-shadow: 0px 1px 0px #ffffff; }
-
-.exampleButton:hover {
-  background: linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
-  background-color: #b8e356; }
-
-.activeExample {
-  position: relative;
-  background: linear-gradient(to bottom, #b8e356 5%, #a5cc52 100%);
-  background-color: #b8e356;
-  top: 1px; }
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 200px; }
+  .examples .activeExample {
+    background: none;
+    background-color: #a5cc52; }
 
 .initState {
   display: grid;
   grid-template-columns: fit-content(20%) 20px fit-content(40%);
-  grid-template-rows: auto;
-  /* gap: 10px; */
-  /* grid-template-areas: */
-  /*     "key eq val" */ }
+  grid-template-rows: auto; }
+  .initState .initEq {
+    text-align: center; }
+  .initState .initVal input {
+    width: 200px; }
+  .initState button {
+    width: 100%;
+    margin: 5px 0 5px 0; }
 
-.initKey {
-  /* grid-area : key; */ }
-
-.initEq {
-  /* grid-area : eq; */
-  text-align: center; }
-
-.initVal {
-  /* grid-area : val; */ }
-
-/* .initState { */
-/*     padding-bottom: 10px; */
-/* } */
-.initVal input {
-  /* width: fit-content; */
-  width: 200px; }
-
-/* .initState button { */
-/*         width: 75%; */
-/*         margin-top: 10px; */
-/* } */
 .symExecWidget {
   width: 200px; }
   .symExecWidget p {
@@ -192,25 +144,22 @@ button:hover {
   position: relative;
   display: inline-block;
   border-bottom: 1px dotted black; }
-
-.tooltip .tooltiptext {
-  visibility: hidden;
-  width: 300px;
-  background-color: black;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  padding: 5px 0;
-  /* Position the tooltip */
-  position: absolute;
-  z-index: 1;
-  top: 100%;
-  left: 50%;
-  margin-left: -60px;
-  /* Use half of the width (120/2 = 60), to center the tooltip */ }
-
-.tooltip:hover .tooltiptext {
-  visibility: visible; }
+  .tooltip .tooltiptext {
+    visibility: hidden;
+    width: 300px;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    /* Position the tooltip */
+    position: absolute;
+    z-index: 1;
+    top: 100%;
+    left: 50%;
+    margin-left: -60px; }
+  .tooltip:hover .tooltiptext {
+    visibility: visible; }
 
 /* Close button*/
 .close {
@@ -218,22 +167,18 @@ button:hover {
   margin: 0;
   margin-left: 10px;
   margin-right: 10px; }
-
-.close:hover {
-  opacity: 1; }
-
-.close:before, .close:after {
-  position: absolute;
-  content: ' ';
-  height: 15px;
-  width: 2px;
-  background-color: #c23616; }
-
-.close:before {
-  transform: rotate(45deg); }
-
-.close:after {
-  transform: rotate(-45deg); }
+  .close:hover {
+    opacity: 1; }
+  .close:before, .close:after {
+    position: absolute;
+    content: ' ';
+    height: 15px;
+    width: 2px;
+    background-color: #c23616; }
+  .close:before {
+    transform: rotate(45deg); }
+  .close:after {
+    transform: rotate(-45deg); }
 
 /* Trace tree */
 .tree ul {

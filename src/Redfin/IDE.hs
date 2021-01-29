@@ -39,7 +39,7 @@ import           Prelude                            hiding (div, log, lookup,
 import           Replica.VDOM.Render                as Render
 import           Text.Read                          (readEither)
 
-import           ISA.Backend.Symbolic.List.QueryRun (runModel)
+import qualified ISA.Backend.Symbolic.List.QueryRun as ISA (runModel)
 import qualified ISA.Example.Add                    as ExampleAdd
 import qualified ISA.Example.Sum                    as ExampleSum
 import           ISA.Types                          hiding (not)
@@ -62,9 +62,9 @@ import           Redfin.IDE.Widget.Trace
 import qualified Debug.Trace                        as Debugger
 
 -- | Cook the initial IDE state
-mkIDE :: Example -> LogAction (Widget HTML) Message -> IO IDEState
-mkIDE ex logger =
-  (flip swapExample) ex <$> (emptyIDE logger)
+mkIDE :: Example -> IO IDEState
+mkIDE ex =
+  (flip swapExample) ex <$> emptyIDE
 
 leftPane :: App a
 leftPane = do
@@ -98,7 +98,7 @@ elimEvent = \case
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
-    (stats, trace) <- liftIO $ _runSymExec ?ide steps (_activeInitStateVal ?ide)
+    (stats, trace) <- liftIO $ ISA.runModel steps (_activeInitStateVal ?ide)
     oldQueue <- liftIO . atomically $ do
       writeTVar (_trace ?ide) trace
       cleanupQueues ?ide

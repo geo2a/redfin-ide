@@ -6,6 +6,9 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
+{-# LANGUAGE DeriveGeneric         #-}
+
+
 module Redfin.IDE.Types where
 
 import           Colog                       (pattern D, HasLog (..), pattern I,
@@ -14,12 +17,15 @@ import           Colog                       (pattern D, HasLog (..), pattern I,
 import           Colog.Message               (Msg (..))
 import           Control.Monad.IO.Class      (MonadIO)
 import           Control.Monad.Reader        (MonadReader, ReaderT (..))
+import           Data.Aeson
+import           GHC.Generics
 
 import           Concur.Core
 import           Concur.Core.Types
 import           Concur.Replica              hiding (id)
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
+import           Data.Int                    (Int32)
 import qualified Data.Map.Strict             as Map
 import           Data.Text                   (Text)
 import           GHC.Stack                   (HasCallStack, callStack,
@@ -27,6 +33,7 @@ import           GHC.Stack                   (HasCallStack, callStack,
 
 import           ISA.Assembly
 import           ISA.Types
+import           ISA.Types.Instruction
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.SMT
@@ -55,7 +62,22 @@ data Example = None
              | Sum
              -- | ExampleGCD
              | MotorLoop
-             deriving (Show, Eq)
+             deriving (Generic, Show, Eq)
+
+instance ToJSON Example where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON Example where
+-- -- | Pure values of the current IDE state
+-- --   This datatypes' accessors will never be used in the code directly,
+-- --   instead the fields will be accessed through smart accessors of 'IDEState'
+-- data IDEVals =
+--   MkIDEVals { dispUnrVal :: Bool
+--             , stps    :: Steps
+--             , tmout   :: Int
+--             , actEx   :: Example
+--             , actSt   :: Context
+--             , src     :: [(Address, Instruction (Data Int32))]
+--             } deriving Generic
 
 data IDEState =
   IDEState { _trace                 :: TVar (Trace Context)
@@ -77,16 +99,28 @@ data IDEState =
            , _activeInitStateVal    :: Context
 
            , _source                :: Script
-           , _runSymExec            :: Steps -> Context -> IO (SymExecStats, Trace Context)
 
            , _solving               :: TMVar ()
-           -- , _solve                 :: Trace Context -> IO (Trace Context)
 
-
-           , _logger                :: LogAction (Widget HTML) Message
            }
 
-type App a = (HasCallStack, ?ide :: IDEState) => Widget HTML a
+data Save =
+  MkSave { _saveTrace              :: Trace Context
+         , _saveDisplayUnreachabel :: Bool
+         , _saveSteps              :: Steps
+         , _saveTimeout            :: Int
+         , _saveActiveNode         :: NodeId
+         , _saveExample            :: Example
+         , _saveInitState          :: Context
+         , _saveSource             :: [(Address, InstructionCode)]
+         } deriving Generic
+
+instance ToJSON Save
+
+
+type App a = ( HasCallStack
+             , ?logger :: LogAction (Widget HTML) Message
+             , ?ide :: IDEState) => Widget HTML a
 
 emptyCtx :: Context
 emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
@@ -97,8 +131,8 @@ emptyTrace = mkTrace (Node 0 emptyCtx) []
 emptyStats :: SymExecStats
 emptyStats = MkSymExecStats 0
 
-emptyIDE :: LogAction (Widget HTML) Message -> IO IDEState
-emptyIDE logger = do
+emptyIDE :: IO IDEState
+emptyIDE = do
   trace  <- newTVarIO emptyTrace
   displayUnreachable <- newEmptyTMVarIO
   let displayUnreachableVal = True
@@ -118,7 +152,6 @@ emptyIDE logger = do
   let activeInitStateVal = emptyCtx
 
   let source = pure ()
-      runSymExec = \_ _ -> pure (emptyStats, emptyTrace)
 
   solving <- newEmptyTMVarIO
 
@@ -142,11 +175,8 @@ emptyIDE logger = do
     activeInitStateVal
 
     source
-    runSymExec
 
     solving
-
-    logger
 
 -- | Here we mimic co-log's loggin functions with implicit params
 --   with a hope to refactor the code later to use the actual co-log
@@ -157,5 +187,5 @@ log msgSeverity msgText =
     withFrozenCallStack (logMsg Msg{ msgStack = callStack, .. })
   where
     logMsg msg = do
-        let (LogAction log) = _logger ?ide
+        let (LogAction log) = ?logger
         log msg

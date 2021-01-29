@@ -44,20 +44,17 @@ swapExample :: IDEState -> Example -> IDEState
 swapExample ide = \case
   None -> ide -- TODO: put empty IDE here
   Add -> ide { _source = EAdd.addLowLevel
-             , _runSymExec = runModel
              , _activeExampleVal = Add
              , _stepsVal = 0
              , _activeInitStateVal = EAdd.initCtx
              }
   Sum -> ide { _source = ESum.sumArrayLowLevel
-             , _runSymExec = runModel
              , _activeExampleVal = Sum
              , _stepsVal = 0
              , _activeInitStateVal = ESum.initCtx
              }
   MotorLoop ->
     ide { _source = ELoop.mc_loop
-        , _runSymExec = runModel
         , _activeExampleVal = MotorLoop
         , _stepsVal = 0
         , _activeInitStateVal = ELoop.initCtx
@@ -66,7 +63,7 @@ swapExample ide = \case
 examplesWidget :: App a
 examplesWidget = do
   log I "Example widget initialised"
-  e <- div [classList [("widget", True), ("examplesWidget", True)]]
+  e <- div [classList [("box", True), ("examplesWidget", True)]]
            [ h4 [] [text "Examples"]
            , div [classList [("examples", True)]]
                  [ exampleButton Add
@@ -77,7 +74,7 @@ examplesWidget = do
   liftIO . atomically $ putTMVar (_activeExample ?ide) e
   examplesWidget
   where exampleButton ex =
-          a [ classList [ ("exampleButton", True)
+          button [ classList [ ("exampleButton", True)
                         , ("activeExample", ex == _activeExampleVal ?ide)]
             , ex <$ onClick]
             [text (Text.pack $ show ex)]
