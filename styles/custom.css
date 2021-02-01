@@ -36,9 +36,12 @@ body, html {
     padding-left: 10px; }
 
 .notice {
+  position: absolute;
   background: #eee8d5;
-  width: 250px;
-  opacity: 0.75; }
+  min-width: 250px;
+  max-width: 1000px;
+  opacity: 0.75;
+  z-index: 2; }
 
 input {
   background-color: #eee8d5;
@@ -72,6 +75,9 @@ input {
   position: sticky;
   top: 150px;
   z-index: 1; }
+  .leftpane .listing {
+    max-height: 250px;
+    overflow-y: auto; }
 
 .middlepane {
   grid-area: middlepane;

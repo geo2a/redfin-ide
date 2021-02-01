@@ -60,9 +60,12 @@ body, html {
 }
 
 .notice {
+    position: absolute;
     background: $base2;
-    width: 250px;
+    min-width: 250px;
+    max-width: 1000px;
     opacity: 0.75;
+    z-index: 2;
 }
 
 
@@ -104,6 +107,7 @@ $header-height: 140px;
     position: sticky;
     top: $header-height + $grid-gap;
     z-index: 1;
+    & .listing { max-height: 250px; overflow-y: auto; }
 }
 
 .middlepane {

@@ -42,11 +42,10 @@ import           ISA.Assembly              (Script, assemble)
 sourceWidget :: FilePath -> App [(Address, Instruction (Data Int32))]
 sourceWidget fpath =
   div [classList [ ("box", True)
-                 , ("sourceCode", True)]]
+                 , ("sourceWidget", True)]]
     [ h3 [] [text "Source code"]
-    , ol [] (map (li [] . (:[]) . text)
-                 (if length src < 30 then src
-                  else ["src is " <> Text.pack (show $ length src) <> " lines loong"]))
+    , ol [classList [("listing", True)]]
+      (map (li [] . (:[]) . text) src)
     , div [] [ Nothing <$ button [onClick] [text "Load from file"]
              , Just . getValue <$> input [value (Text.pack fpath)
                                          , placeholder "file.redfin"
