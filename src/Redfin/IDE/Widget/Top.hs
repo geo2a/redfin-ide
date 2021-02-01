@@ -10,6 +10,7 @@ import           Concur.Replica                 hiding (id)
 import qualified Concur.Replica.DOM.Events      as P
 import           Concur.Replica.DOM.Props
 import           Control.Applicative            (Alternative, empty, (<|>))
+import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
 import           Control.Monad.IO.Class         (liftIO)
@@ -22,6 +23,7 @@ import           Data.Functor                   (void)
 import qualified Data.Map.Strict                as Map
 import           Data.Text                      (Text)
 import qualified Data.Text                      as Text
+import qualified Data.Text                      as Text
 import qualified Data.Text.Lazy.Builder         as Text
 import qualified Data.Text.Read                 as Text
 import           Prelude                        hiding (div, id, log, lookup,
@@ -31,6 +33,7 @@ import           Replica.VDOM.Types             (DOMEvent (getDOMEvent))
 import           Text.Read                      (readEither)
 
 import           Redfin.IDE.Types
+import           Redfin.IDE.Types.Save
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.Top.Examples
 
@@ -40,14 +43,49 @@ data Action = StepsChanged String
             | DisplayUnreachableToggled
 
 -- | Top pane of the IDE and its widgets
-topPane :: App a
+topPane :: App IDEState
 topPane =
   section [classList [ ("pane", True), ("toppane", True)]]
     [ div [classList [ ("contents", True)]]
-        [ examplesWidget
+        [ saveWidget ("", "") Nothing
+        , examplesWidget
         , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
         ]
     ]
+
+-- | Save and restore the IDE state from file
+saveWidget :: (FilePath, FilePath) -> Maybe Text -> App IDEState
+saveWidget (save, load) msg = do
+  let prefix = _savePrefix ?ide
+  div [classList [("box", True), ("saveWidget", True)]]
+    [ div [] [ h3 [] [text "Project"]
+             , Just . Right <$> div [] [ Nothing <$ button [onClick] [text "Load"]
+                                , Just . getValue <$> input [value (Text.pack load)
+                                                            , placeholder "path/to/project.json"
+                                                            , onChange]]
+             , Just . Left <$> div [] [ Nothing <$ button [onClick] [text "Save"]
+                               , Just . getValue <$> input [value (Text.pack save)
+                                                           , placeholder "path/to/project.json"
+                                                           , onChange]]
+             , Nothing <$ span [classList [("notice", True)]]
+                               [ maybe empty text msg
+                               , liftIO (threadDelay $ 5 * 10^6)]
+             ]
+    ] >>= \case Just (Left Nothing) -> do
+                  log D $ "IDE saved into" <> Text.pack save
+                  liftIO (saveIDE (prefix <> save) ?ide) >>= \case
+                    Left err -> saveWidget (save, load) (Just err)
+                    Right () -> saveWidget (save, load) (Just "Saved successfully")
+                Just (Left (Just save')) ->
+                  saveWidget (save', load) Nothing
+                Just (Right Nothing) -> do
+                  log D $ "Loading IDE from " <> Text.pack load
+                  liftIO (loadIDE (prefix <> load)) >>= \case
+                    Left err -> saveWidget (save, load) (Just err)
+                    Right ide -> pure ide
+                Just (Right (Just load')) ->
+                  saveWidget (save, load') Nothing
+                Nothing -> saveWidget (save, load) Nothing
 
 -- | Specify the number of symbolic execution steps
 symExecWidget :: Steps -> Int -> App a

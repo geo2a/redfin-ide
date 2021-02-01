@@ -26,6 +26,7 @@ import           Data.List                  (union)
 import qualified Data.Map.Strict            as Map
 import           Data.Maybe                 (catMaybes, listToMaybe)
 import           Data.Monoid                (First (..))
+import           Data.Monoid
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import qualified Data.Text.Lazy.Builder     as Text
@@ -42,12 +43,6 @@ import           ISA.Types.Symbolic.Parser
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
-
-parseKey :: String -> Maybe Key
-parseKey key =
-   getFirst . mconcat . map First $ [ Reg  <$> readMaybe key
-                                    , F    <$> readMaybe key
-                                    , Addr <$> readMaybe key]
 
 parseValue :: Text -> Key -> Maybe (Key, Sym)
 parseValue txt = \case
@@ -95,10 +90,8 @@ initStateWidget ctx = do
 keyValsWidget :: TVar (Map.Map Key Text) -> App (Map.Map Key Text)
 keyValsWidget buffer = do
   ctx <- liftIO $ readTVarIO buffer
-  let inps = case (_activeExampleVal ?ide) of
-               None -> []
-               _    -> map (keyInp buffer) (Map.assocs ctx)
-                    ++ [addBindingWidget buffer]
+  let inps = map (keyInp buffer) (Map.assocs ctx)
+           ++ [addBindingWidget buffer]
   div [classList [ ("box", True)]]
              [ h3 [] [text "Initial State"]
              , div [classList [("initState", True)]] $
@@ -158,10 +151,8 @@ addBindingWidget buffer = do
 constrWidget :: TVar (Map.Map Text Sym) -> App (Map.Map Text Sym)
 constrWidget buffer = do
   cs <- liftIO $ readTVarIO buffer
-  let inps = case (_activeExampleVal ?ide) of
-               None -> []
-               _    -> (map (constrInp buffer) (Map.assocs cs))
-                    ++ [addConstraintWidget buffer]
+  let inps = (map (constrInp buffer) (Map.assocs cs))
+          ++ [addConstraintWidget buffer]
   div [classList [ ("box", True)]]
              [ h3 [] [text "Constraints"]
              , div [classList [("initState", True)]] $

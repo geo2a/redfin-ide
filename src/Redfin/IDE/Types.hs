@@ -11,29 +11,31 @@
 
 module Redfin.IDE.Types where
 
-import           Colog                       (pattern D, HasLog (..), pattern I,
-                                              LogAction (..), Message, Severity,
-                                              WithLog, richMessageAction)
-import           Colog.Message               (Msg (..))
-import           Control.Monad.IO.Class      (MonadIO)
-import           Control.Monad.Reader        (MonadReader, ReaderT (..))
-import           Data.Aeson
-import           GHC.Generics
-
+import           Colog                        (pattern D, HasLog (..),
+                                               pattern I, LogAction (..),
+                                               Message, Severity, WithLog,
+                                               richMessageAction)
+import           Colog.Message                (Msg (..))
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica              hiding (id)
+import           Concur.Replica               hiding (id)
 import           Control.Concurrent.STM
-import           Control.Concurrent.STM.TSem
-import           Data.Int                    (Int32)
-import qualified Data.Map.Strict             as Map
-import           Data.Text                   (Text)
-import           GHC.Stack                   (HasCallStack, callStack,
-                                              withFrozenCallStack)
+import           Control.Monad.IO.Class       (MonadIO)
+import           Control.Monad.Reader         (MonadReader, ReaderT (..))
+import           Data.Bifunctor               (second)
+import           Data.Int                     (Int32)
+import qualified Data.Map.Strict              as Map
+import           Data.Text                    (Text)
+import           GHC.Generics
+import           GHC.Stack                    (HasCallStack, callStack,
+                                               withFrozenCallStack)
+
+import           Data.Aeson                   as JSON
 
 import           ISA.Assembly
 import           ISA.Types
-import           ISA.Types.Instruction
+import           ISA.Types.Instruction        hiding (Add)
+import qualified ISA.Types.Instruction.Encode as ISA
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.SMT
@@ -60,9 +62,16 @@ type Steps = Int
 data Example = None
              | Add
              | Sum
-             -- | ExampleGCD
              | MotorLoop
-             deriving (Generic, Show, Eq)
+             deriving (Generic, Eq)
+
+instance Show Example where
+  show = \case
+    None -> "Custom"
+    Add -> "Add"
+    Sum -> "Sum"
+    MotorLoop -> "MotorLoop"
+
 
 instance ToJSON Example where
   toEncoding = genericToEncoding defaultOptions
@@ -98,25 +107,13 @@ data IDEState =
            , _activeInitState       :: TMVar Context
            , _activeInitStateVal    :: Context
 
-           , _source                :: Script
+           , _source                :: [(Address, Instruction (Data Int32))]
 
            , _solving               :: TMVar ()
 
+           , _savePrefix            :: FilePath
+
            }
-
-data Save =
-  MkSave { _saveTrace              :: Trace Context
-         , _saveDisplayUnreachabel :: Bool
-         , _saveSteps              :: Steps
-         , _saveTimeout            :: Int
-         , _saveActiveNode         :: NodeId
-         , _saveExample            :: Example
-         , _saveInitState          :: Context
-         , _saveSource             :: [(Address, InstructionCode)]
-         } deriving Generic
-
-instance ToJSON Save
-
 
 type App a = ( HasCallStack
              , ?logger :: LogAction (Widget HTML) Message
@@ -151,7 +148,7 @@ emptyIDE = do
   activeInitState <- newEmptyTMVarIO
   let activeInitStateVal = emptyCtx
 
-  let source = pure ()
+  let source = []
 
   solving <- newEmptyTMVarIO
 
@@ -177,6 +174,10 @@ emptyIDE = do
     source
 
     solving
+
+    "/home/geo2a/Desktop/redfin-ide/"
+
+
 
 -- | Here we mimic co-log's loggin functions with implicit params
 --   with a hope to refactor the code later to use the actual co-log

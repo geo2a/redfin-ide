@@ -1,4 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes      #-}
 
 module Redfin.IDE.Widget.Source
   ( sourceWidget
@@ -19,6 +20,7 @@ import           Control.ShiftMap
 import qualified Data.Aeson                as A
 import           Data.Either               (rights)
 import           Data.Functor              (void)
+import           Data.Int                  (Int32)
 import qualified Data.Map.Strict           as Map
 import           Data.Text                 (Text)
 import qualified Data.Text                 as Text
@@ -29,6 +31,7 @@ import           Replica.VDOM.Render       as Render
 import           Text.Read                 (readEither)
 
 import           ISA.Types
+import           ISA.Types.Instruction
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
@@ -36,14 +39,22 @@ import           Redfin.IDE.Widget
 import           ISA.Assembly              (Script, assemble)
 
 -- | Display the assembly source code of the program
-sourceWidget :: App a
-sourceWidget =
+sourceWidget :: FilePath -> App [(Address, Instruction (Data Int32))]
+sourceWidget fpath =
   div [classList [ ("box", True)
                  , ("sourceCode", True)]]
     [ h3 [] [text "Source code"]
     , ol [] (map (li [] . (:[]) . text)
-             (if length src < 30 then src
-              else ["src is " <> Text.pack (show $ length src) <> " lines loong"]))
-    ]
+                 (if length src < 30 then src
+                  else ["src is " <> Text.pack (show $ length src) <> " lines loong"]))
+    , div [] [ Nothing <$ button [onClick] [text "Load from file"]
+             , Just . getValue <$> input [value (Text.pack fpath)
+                                         , placeholder "file.redfin"
+                                         , onChange]]
+    ] >>= \case
+    Nothing -> do
+      log I $ "Loading script from file " <> Text.pack fpath
+      pure []
+    Just fpath' -> sourceWidget fpath'
   where src :: [Text.Text]
-        src = map (Text.pack . show . snd) $ assemble (_source ?ide)
+        src = map (Text.pack . show . snd) (_source ?ide)

@@ -35,6 +35,11 @@ body, html {
     padding: 0;
     padding-left: 10px; }
 
+.notice {
+  background: #eee8d5;
+  width: 250px;
+  opacity: 0.75; }
+
 input {
   background-color: #eee8d5;
   border: 1px solid #93a1a1; }
@@ -56,6 +61,10 @@ input {
     display: flex; }
   .toppane ul {
     list-style-type: none; }
+  .toppane .saveWidget {
+    width: 300px; }
+    .toppane .saveWidget button {
+      width: 100px; }
 
 .leftpane {
   grid-area: leftpane;
@@ -142,8 +151,7 @@ button:hover {
 
 .tooltip {
   position: relative;
-  display: inline-block;
-  border-bottom: 1px dotted black; }
+  display: inline-block; }
   .tooltip .tooltiptext {
     visibility: hidden;
     width: 300px;
@@ -156,7 +164,7 @@ button:hover {
     position: absolute;
     z-index: 1;
     top: 100%;
-    left: 50%;
+    left: 100%;
     margin-left: -60px; }
   .tooltip:hover .tooltiptext {
     visibility: visible; }

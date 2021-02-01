@@ -11,7 +11,7 @@ import           Data.Sequence             (Seq, (<|), (|>))
 import qualified Data.Sequence             as Seq
 import           Data.Set                  (Set)
 import qualified Data.Set                  as Set
-import           Data.Text                 (Text)
+import           Data.Text                 (Text, unpack)
 import           Prelude                   hiding (span)
 
 
@@ -53,3 +53,6 @@ joinThem = (toList . Set.fromList . toList <$>) . andd' . Seq.fromList
 tooltipped :: Text -> Widget HTML a -> Widget HTML a
 tooltipped tip w = span [classList [("tooltip", True)]]
   [w, span [classList [("tooltiptext", True)]] [text tip]]
+
+getValue :: BaseEvent -> String
+getValue = unpack . targetValue . target

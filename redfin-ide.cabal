@@ -44,13 +44,16 @@ executable redfin-ide-exe
                     -Wincomplete-record-updates
                     -Wredundant-constraints
                     -threaded -rtsopts -with-rtsopts=-N
-  build-depends: base >=4.7 && <5
-               , aeson
+  build-depends: aeson
+               , aeson-pretty
+               , base >=4.7 && <5
+               , bytestring >= 0.10.8.2
                , co-log
                , co-log-core
                , concur-core
                , concur-replica
                , containers
+               , hsass
                , mtl
                , replica
                , sbv >= 8.9
@@ -60,5 +63,4 @@ executable redfin-ide-exe
                , wai
                , wai-middleware-static
                , websockets
-               , hsass
   default-language: Haskell2010

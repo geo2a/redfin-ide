@@ -34,27 +34,29 @@ import           ISA.Types
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
+import           ISA.Assembly                       hiding (div)
 import           ISA.Backend.Symbolic.List.QueryRun (runModel)
 import qualified ISA.Example.Add                    as EAdd
 import qualified ISA.Example.MotorControl           as ELoop
 import qualified ISA.Example.Sum                    as ESum
 import           ISA.Types.Symbolic.Trace
 
-swapExample :: IDEState -> Example -> IDEState
+swapExample :: IDEState -> Example -> IO IDEState
 swapExample ide = \case
-  None -> ide -- TODO: put empty IDE here
-  Add -> ide { _source = EAdd.addLowLevel
-             , _activeExampleVal = Add
-             , _stepsVal = 0
-             , _activeInitStateVal = EAdd.initCtx
-             }
-  Sum -> ide { _source = ESum.sumArrayLowLevel
-             , _activeExampleVal = Sum
-             , _stepsVal = 0
-             , _activeInitStateVal = ESum.initCtx
-             }
-  MotorLoop ->
-    ide { _source = ELoop.mc_loop
+  None -> emptyIDE
+  Add -> pure ide { _source = assemble $ EAdd.addLowLevel
+               , _activeExampleVal = Add
+               , _stepsVal = 0
+               , _activeInitStateVal = EAdd.initCtx
+               }
+  Sum -> pure ide { _source = assemble $ ESum.sumArrayLowLevel
+                  , _activeExampleVal = Sum
+                  , _stepsVal = 0
+                  , _activeInitStateVal = ESum.initCtx
+                  }
+  MotorLoop -> pure
+
+    ide { _source = assemble $ ELoop.mc_loop
         , _activeExampleVal = MotorLoop
         , _stepsVal = 0
         , _activeInitStateVal = ELoop.initCtx
@@ -66,9 +68,12 @@ examplesWidget = do
   e <- div [classList [("box", True), ("examplesWidget", True)]]
            [ h4 [] [text "Examples"]
            , div [classList [("examples", True)]]
-                 [ exampleButton Add
-                 , exampleButton Sum
-                 , exampleButton MotorLoop
+                 [ tooltipped "Add two numbers" $ exampleButton Add
+                 , tooltipped "Sum of an array of known length" $ exampleButton Sum
+                 , tooltipped "Loop invariant for stepper-motor control program" $
+                     exampleButton MotorLoop
+                 , tooltipped "Sandbox" $
+                     exampleButton None
                  ]
            ]
   liftIO . atomically $ putTMVar (_activeExample ?ide) e

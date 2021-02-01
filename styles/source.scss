@@ -59,6 +59,13 @@ body, html {
     }
 }
 
+.notice {
+    background: $base2;
+    width: 250px;
+    opacity: 0.75;
+}
+
+
 input {
   background-color : $base2;
   border: 1px solid $base1;
@@ -85,7 +92,10 @@ $header-height: 140px;
     z-index: 1;
     & .contents { display: flex; }
     & ul { list-style-type:none; }
-
+    & .saveWidget {
+        width: 300px;
+        & button { width: 100px; }
+    }
 }
 
 .leftpane {
@@ -181,7 +191,6 @@ button:hover {
 .tooltip {
     position: relative;
     display: inline-block;
-    border-bottom: 1px dotted black;
 
     & .tooltiptext {
         visibility: hidden;
@@ -196,7 +205,7 @@ button:hover {
         position: absolute;
         z-index: 1;
         top: 100%;
-        left: 50%;
+        left: 100%;
         margin-left: -60px;
     }
     &:hover .tooltiptext {

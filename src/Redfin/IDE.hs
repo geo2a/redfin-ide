@@ -29,6 +29,7 @@ import           Control.ShiftMap
 import qualified Data.Aeson                         as A
 import           Data.Either                        (rights)
 import           Data.Functor                       (void)
+import           Data.Int                           (Int32)
 import qualified Data.Map.Strict                    as Map
 import           Data.Text                          (Text)
 import qualified Data.Text                          as Text
@@ -43,6 +44,7 @@ import qualified ISA.Backend.Symbolic.List.QueryRun as ISA (runModel)
 import qualified ISA.Example.Add                    as ExampleAdd
 import qualified ISA.Example.Sum                    as ExampleSum
 import           ISA.Types                          hiding (not)
+import           ISA.Types.Instruction
 import           ISA.Types.Instruction.Decode
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Context
@@ -64,34 +66,37 @@ import qualified Debug.Trace                        as Debugger
 -- | Cook the initial IDE state
 mkIDE :: Example -> IO IDEState
 mkIDE ex =
-  (flip swapExample) ex <$> emptyIDE
+  (flip swapExample) ex =<< emptyIDE
 
-leftPane :: App a
+leftPane :: App [(Address, Instruction (Data Int32))]
 leftPane = do
   section [classList [ ("pane", True)
                    , ("leftpane", True)
                    ]]
     [ div [classList [ ("leftpane-contents", True)]]
-          [ sourceWidget
+          [ sourceWidget ""
           , initStateWidget (_activeInitStateVal ?ide)
           ]
     ]
 
 data Event = Proceed
+           | SourceChanged [(Address, Instruction (Data Int32))]
+           | SaveLoaded IDEState
            | ExampleChanged Example
            | StepsChanged Steps
            | TimeoutChanged Int
            | InitStateChanged Context
            | SolveButtonPressed
            | TraceDisplayToggled
-           deriving Show
 
 elimEvent :: Event -> App IDEState
 elimEvent = \case
   Proceed -> pure ?ide
+  SourceChanged src -> pure $ ?ide { _source = src }
+  SaveLoaded ide -> pure ide
   ExampleChanged ex -> do
     log D $ "Example changed to " <> Text.pack (show ex)
-    let ide' = swapExample ?ide ex
+    ide' <- liftIO $ swapExample ?ide ex
     oldQueue <- liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
       cleanupQueues ide'
@@ -135,10 +140,10 @@ elimEvent = \case
 ideWidget :: App a
 ideWidget = do
   event <- div [classList [("grid-container", True)]]
-      [ Proceed <$ MultiAlternative.orr
-                       [ topPane
-                       , leftPane
-                       , traceWidget
+      [ SaveLoaded <$> topPane
+      , SourceChanged <$> leftPane
+      , Proceed <$ MultiAlternative.orr
+                       [ traceWidget
                        , stateWidget]
 
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
