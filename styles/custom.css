@@ -68,6 +68,15 @@ input {
     width: 300px; }
     .toppane .saveWidget button {
       width: 100px; }
+  .toppane .verificationWidget {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-content: flex-start; }
+    .toppane .verificationWidget .input {
+      width: 300px; }
+    .toppane .verificationWidget .proof {
+      font-size: 10pt; }
 
 .leftpane {
   grid-area: leftpane;

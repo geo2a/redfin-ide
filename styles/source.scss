@@ -99,6 +99,15 @@ $header-height: 140px;
         width: 300px;
         & button { width: 100px; }
     }
+    & .verificationWidget {
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-content: flex-start;
+        & .input {width: 300px }
+        & .proof { font-size: 10pt;
+                 }
+    }
 }
 
 .leftpane {

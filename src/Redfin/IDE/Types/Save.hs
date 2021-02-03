@@ -81,7 +81,7 @@ restoreSave save = do
 -- | Save the IDE state into a file
 saveIDE :: FilePath -> IDEState -> IO (Either Text ())
 saveIDE fpath ide =
-  try (L.writeFile fpath . JSON.encodePretty =<< createSave ide) >>= \case
+  try (L.writeFile fpath . JSON.encode =<< createSave ide) >>= \case
     Left (e :: SomeException) -> pure (Left "I/O error: target file does not exist?")
     Right _ -> pure (Right ())
 

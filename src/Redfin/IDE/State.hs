@@ -47,7 +47,7 @@ fancySolution = \case
   Just (Satisfiable (MkSMTModel model)) ->
     div [] [ h5 [] [text "Satisfiable"]
            , ul [] (map (\(name,x) ->
-                    li [] [text . Text.pack $ name <> " = " <> show x]) model)
+                    li [] [text $ name <> " = " <> Text.pack (show x)]) (Map.assocs model))
            ]
 
 

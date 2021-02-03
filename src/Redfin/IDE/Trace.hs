@@ -33,8 +33,8 @@ enumTree = flip evalState 0 . traverse count
       i <- get; put (i+1)
       return (a,i)
 
-node :: (Context, Int) -> App a
-node args@(ctx, n) = do
+node :: Node Context -> App a
+node args@(Node n ctx) = do
   ev <- a [ Just <$> onClick]
           [ text (Text.pack . show $ n)]
   case ev of
@@ -45,8 +45,8 @@ node args@(ctx, n) = do
       log D $ "Active node changed to " <> Text.pack (show n)
       node args
 
-htmlTree :: Tree.Tree (Context, Int) -> App a
-htmlTree (Tree.Node n@(ctx,i) ns) =
+htmlTree :: Tree.Tree (Node Context) -> App a
+htmlTree (Tree.Node n@(Node i ctx) ns) =
   case ns of
     []       -> li [classList $ ("leaf", True):cs] [node n]
     children -> li [classList cs] [node n, ul [] (map htmlTree children)]
@@ -55,10 +55,10 @@ htmlTree (Tree.Node n@(ctx,i) ns) =
              , ("unreachable", not $ isReachable ctx)
              , ("hidden", (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide))
              , ("has-hidden-children",
-                any (\(Tree.Node (ctx, _) _) -> (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
+                any (\(Tree.Node (Node i ctx) _) -> (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
              ]
 
 htmlTrace :: Trace Context -> App a
-htmlTrace (Trace tree) =
+htmlTrace (Trace trace) =
   div [classList [("tree", True)]]
-  [ ul [] [htmlTree . enumTree . fmap _nodeBody $ tree]]
+  [ ul [] [htmlTree trace]]
