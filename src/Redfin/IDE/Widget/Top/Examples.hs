@@ -3,43 +3,42 @@ module Redfin.IDE.Widget.Top.Examples
   , examplesWidget
   ) where
 
-import           Colog                              (pattern D, pattern E,
-                                                     HasLog (..), pattern I,
-                                                     LogAction, Message)
+import           Colog                           (HasLog (..), LogAction,
+                                                  Message, pattern D, pattern E,
+                                                  pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                     hiding (id)
-import qualified Concur.Replica.DOM.Events          as P
-import           Control.Applicative                (Alternative, empty, (<|>))
+import           Concur.Replica                  hiding (id)
+import qualified Concur.Replica.DOM.Events       as P
+import           Control.Applicative             (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
-import           Control.Monad.IO.Class             (liftIO)
+import           Control.Monad.IO.Class          (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative           as MultiAlternative
+import qualified Control.MultiAlternative        as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                         as A
-import           Data.Either                        (rights)
-import           Data.Functor                       (void)
-import qualified Data.Map.Strict                    as Map
-import           Data.Text                          (Text)
-import qualified Data.Text                          as Text
-import qualified Data.Text.Lazy.Builder             as Text
-import qualified Data.Text.Read                     as Text
-import           Prelude                            hiding (div, log, lookup,
-                                                     span)
-import           Replica.VDOM.Render                as Render
-import           Text.Read                          (readEither)
+import qualified Data.Aeson                      as A
+import           Data.Either                     (rights)
+import           Data.Functor                    (void)
+import qualified Data.Map.Strict                 as Map
+import           Data.Text                       (Text)
+import qualified Data.Text                       as Text
+import qualified Data.Text.Lazy.Builder          as Text
+import qualified Data.Text.Read                  as Text
+import           Prelude                         hiding (div, log, lookup, span)
+import           Replica.VDOM.Render             as Render
+import           Text.Read                       (readEither)
 
 import           ISA.Types
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
-import           ISA.Assembly                       hiding (div)
-import           ISA.Backend.Symbolic.List.QueryRun (runModel)
-import qualified ISA.Example.Add                    as EAdd
-import qualified ISA.Example.MotorControl           as ELoop
-import qualified ISA.Example.Sum                    as ESum
-import           ISA.Types.Symbolic.Trace
+import           ISA.Assembly                    hiding (div)
+import           ISA.Backend.Symbolic.Zipper
+import           ISA.Backend.Symbolic.Zipper.Run (runModel)
+import qualified ISA.Example.Add                 as EAdd
+import qualified ISA.Example.MotorControl        as ELoop
+import qualified ISA.Example.Sum                 as ESum
 
 swapExample :: IDEState -> Example -> IO IDEState
 swapExample ide = \case

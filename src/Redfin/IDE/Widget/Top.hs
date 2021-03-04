@@ -1,46 +1,44 @@
 {-# LANGUAGE RankNTypes #-}
 module Redfin.IDE.Widget.Top (topPane) where
 
-import           Colog                              (pattern D, pattern E,
-                                                     HasLog (..), pattern I,
-                                                     LogAction, Message)
+import           Colog                          (HasLog (..), LogAction,
+                                                 Message, pattern D, pattern E,
+                                                 pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                     hiding (id)
-import qualified Concur.Replica.DOM.Events          as P
+import           Concur.Replica                 hiding (id)
+import qualified Concur.Replica.DOM.Events      as P
 import           Concur.Replica.DOM.Props
-import           Control.Applicative                (Alternative, empty, (<|>))
+import           Control.Applicative            (Alternative, empty, (<|>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
-import           Control.Monad.IO.Class             (liftIO)
+import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative           as MultiAlternative
+import qualified Control.MultiAlternative       as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                         as A
-import           Data.Either                        (rights)
-import           Data.Functor                       (void)
-import qualified Data.Map.Strict                    as Map
-import           Data.Text                          (Text)
-import qualified Data.Text                          as Text
-import qualified Data.Text                          as Text
-import qualified Data.Text.Lazy.Builder             as Text
-import qualified Data.Text.Read                     as Text
-import           Prelude                            hiding (div, id, log,
-                                                     lookup, not, span)
-import           Replica.VDOM.Render                as Render
-import           Replica.VDOM.Types                 (DOMEvent (getDOMEvent))
-import           Text.Read                          (readEither)
+import qualified Data.Aeson                     as A
+import           Data.Either                    (rights)
+import           Data.Functor                   (void)
+import qualified Data.Map.Strict                as Map
+import           Data.Text                      (Text)
+import qualified Data.Text                      as Text
+import qualified Data.Text.Lazy.Builder         as Text
+import qualified Data.Text.Read                 as Text
+import           Prelude                        hiding (div, id, log, lookup,
+                                                 span)
+import           Replica.VDOM.Render            as Render
+import           Replica.VDOM.Types             (DOMEvent (getDOMEvent))
+import           Text.Read                      (readEither)
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Types.Save
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.Top.Examples
-import           Redfin.IDE.Widget.Top.Verification
+-- import           Redfin.IDE.Widget.Top.Verification
 
 import           ISA.Types
-import           ISA.Types.Symbolic                 hiding (getValue)
-import           ISA.Types.Symbolic.Trace.Property
+import           ISA.Types.Symbolic             hiding (getValue)
 
 data Action = StepsChanged String
             | TimeoutChanged String
@@ -55,7 +53,7 @@ topPane =
         [ saveWidget ("", "") Nothing
         , examplesWidget
         , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
-        , verificationWidget (Nothing, "", Nothing) Nothing
+--        , verificationWidget (Nothing, "", Nothing) Nothing
         ]
     ]
 
@@ -87,7 +85,7 @@ saveWidget (save, load) msg = do
                 Just (Right Nothing) -> do
                   log D $ "Loading IDE from " <> Text.pack load
                   liftIO (loadIDE (prefix <> load)) >>= \case
-                    Left err -> saveWidget (save, load) (Just err)
+                    Left err  -> saveWidget (save, load) (Just err)
                     Right ide -> pure ide
                 Just (Right (Just load')) ->
                   saveWidget (save, load') Nothing

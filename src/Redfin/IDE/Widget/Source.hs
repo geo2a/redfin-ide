@@ -5,8 +5,8 @@ module Redfin.IDE.Widget.Source
   ( sourceWidget
   ) where
 
-import           Colog                     (pattern D, pattern E, HasLog (..),
-                                            pattern I, LogAction, Message)
+import           Colog                     (HasLog (..), LogAction, Message,
+                                            pattern D, pattern E, pattern I)
 import           Concur.Core
 import           Concur.Core.Types
 import           Concur.Replica            hiding (id)
@@ -39,7 +39,7 @@ import           Redfin.IDE.Widget
 import           ISA.Assembly              (Script, assemble)
 
 -- | Display the assembly source code of the program
-sourceWidget :: FilePath -> App [(Address, Instruction (Data Int32))]
+sourceWidget :: FilePath -> App [(CAddress, Instruction (Data Int32))]
 sourceWidget fpath =
   div [classList [ ("box", True)
                  , ("sourceWidget", True)]]

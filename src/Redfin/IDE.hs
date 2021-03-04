@@ -12,46 +12,45 @@ module Redfin.IDE
   , mkIDE
   ) where
 
-import           Colog                              (pattern D, pattern E,
-                                                     HasLog (..), pattern I,
-                                                     LogAction, Message)
+import           Colog                           (HasLog (..), LogAction,
+                                                  Message, pattern D, pattern E,
+                                                  pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                     hiding (id)
-import qualified Concur.Replica.DOM.Events          as P
-import           Control.Applicative                (Alternative, empty, (<|>))
+import           Concur.Replica                  hiding (id)
+import qualified Concur.Replica.DOM.Events       as P
+import           Control.Applicative             (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
-import           Control.Monad.IO.Class             (liftIO)
+import           Control.Monad.IO.Class          (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative           as MultiAlternative
+import qualified Control.MultiAlternative        as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                         as A
-import           Data.Either                        (rights)
-import           Data.Functor                       (void)
-import           Data.Int                           (Int32)
-import qualified Data.Map.Strict                    as Map
-import           Data.Text                          (Text)
-import qualified Data.Text                          as Text
-import qualified Data.Text.Lazy.Builder             as Text
-import qualified Data.Text.Read                     as Text
-import           Prelude                            hiding (div, log, lookup,
-                                                     span)
-import           Replica.VDOM.Render                as Render
-import           Text.Read                          (readEither)
+import qualified Data.Aeson                      as A
+import           Data.Either                     (rights)
+import           Data.Functor                    (void)
+import           Data.Int                        (Int32)
+import qualified Data.Map.Strict                 as Map
+import           Data.Text                       (Text)
+import qualified Data.Text                       as Text
+import qualified Data.Text.Lazy.Builder          as Text
+import qualified Data.Text.Read                  as Text
+import           Prelude                         hiding (div, log, lookup, span)
+import           Replica.VDOM.Render             as Render
+import           Text.Read                       (readEither)
 
-import qualified ISA.Backend.Symbolic.List.QueryRun as ISA (runModel)
-import qualified ISA.Example.Add                    as ExampleAdd
-import qualified ISA.Example.Sum                    as ExampleSum
-import           ISA.Types                          hiding (not)
+import           ISA.Backend.Symbolic.Zipper     hiding (_trace)
+import qualified ISA.Backend.Symbolic.Zipper.Run as ISA (runModel)
+import qualified ISA.Example.Add                 as ExampleAdd
+import qualified ISA.Example.Sum                 as ExampleSum
+import           ISA.Types
+import           ISA.Types.Context               hiding (Context)
 import           ISA.Types.Instruction
 import           ISA.Types.Instruction.Decode
 import           ISA.Types.Symbolic
-import           ISA.Types.Symbolic.Context
-import           ISA.Types.Symbolic.Trace           hiding (htmlTrace)
 
 import           Redfin.IDE.State
-import           Redfin.IDE.Trace                   (htmlTrace)
+import           Redfin.IDE.Trace                (htmlTrace)
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.InitialState
@@ -61,14 +60,14 @@ import           Redfin.IDE.Widget.Top
 import           Redfin.IDE.Widget.Top.Examples
 import           Redfin.IDE.Widget.Trace
 
-import qualified Debug.Trace                        as Debugger
+import qualified Debug.Trace                     as Debugger
 
 -- | Cook the initial IDE state
 mkIDE :: Example -> IO IDEState
 mkIDE ex =
   (flip swapExample) ex =<< emptyIDE
 
-leftPane :: App [(Address, Instruction (Data Int32))]
+leftPane :: App [(CAddress, Instruction (Data Int32))]
 leftPane = do
   section [classList [ ("pane", True)
                    , ("leftpane", True)
@@ -80,7 +79,7 @@ leftPane = do
     ]
 
 data Event = Proceed
-           | SourceChanged [(Address, Instruction (Data Int32))]
+           | SourceChanged [(CAddress, Instruction (Data Int32))]
            | SaveLoaded IDEState
            | ExampleChanged Example
            | StepsChanged Steps
@@ -103,12 +102,12 @@ elimEvent = \case
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
-    (stats, trace) <- liftIO $ ISA.runModel steps (_activeInitStateVal ?ide)
+    trace <- liftIO $ ISA.runModel steps (_activeInitStateVal ?ide)
     oldQueue <- liftIO . atomically $ do
       writeTVar (_trace ?ide) trace
       cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
-    log I $ "Stats: " <> (Text.pack . show $ stats)
+    -- log I $ "Stats: " <> (Text.pack . show $ stats)
     pure (?ide {_stepsVal = steps})
   TimeoutChanged timeout -> do
     log D $ "Timeout changed to " <> Text.pack (show timeout)

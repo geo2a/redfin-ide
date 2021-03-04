@@ -11,35 +11,39 @@
 
 module Redfin.IDE.Types where
 
-import           Colog                        (pattern D, HasLog (..),
-                                               pattern I, LogAction (..),
-                                               Message, Severity, WithLog,
-                                               richMessageAction)
-import           Colog.Message                (Msg (..))
+import           Colog                           (HasLog (..), LogAction (..),
+                                                  Message, Severity, WithLog,
+                                                  pattern D, pattern I,
+                                                  richMessageAction)
+import           Colog.Message                   (Msg (..))
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica               hiding (id)
+import           Concur.Replica                  hiding (id)
 import           Control.Concurrent.STM
-import           Control.Monad.IO.Class       (MonadIO)
-import           Control.Monad.Reader         (MonadReader, ReaderT (..))
-import           Data.Bifunctor               (second)
-import           Data.Int                     (Int32)
-import qualified Data.Map.Strict              as Map
-import           Data.Text                    (Text)
+import           Control.Monad.IO.Class          (MonadIO)
+import           Control.Monad.Reader            (MonadReader, ReaderT (..))
+import           Data.Bifunctor                  (second)
+import           Data.Int                        (Int32)
+import qualified Data.Map.Strict                 as Map
+import           Data.Text                       (Text)
 import           GHC.Generics
-import           GHC.Stack                    (HasCallStack, callStack,
-                                               withFrozenCallStack)
+import           GHC.Stack                       (HasCallStack, callStack,
+                                                  withFrozenCallStack)
 
-import           Data.Aeson                   as JSON
+import           Data.Aeson                      as JSON
 
 import           ISA.Assembly
+import           ISA.Backend.Symbolic.Zipper
+import           ISA.Backend.Symbolic.Zipper.Run
 import           ISA.Types
-import           ISA.Types.Instruction        hiding (Add)
-import qualified ISA.Types.Instruction.Encode as ISA
+import           ISA.Types.Context               hiding (Context)
+import           ISA.Types.Instruction           hiding (Add)
+import qualified ISA.Types.Instruction.Encode    as ISA
+import           ISA.Types.Key
 import           ISA.Types.Symbolic
-import           ISA.Types.Symbolic.Context
+import           ISA.Types.Symbolic.Address
 import           ISA.Types.Symbolic.SMT
-import           ISA.Types.Symbolic.Trace
+import           ISA.Types.Tree
 
 -- | Either-like datatype for tracking new/old content of tags
 data Contents a b = Old a
@@ -67,9 +71,9 @@ data Example = None
 
 instance Show Example where
   show = \case
-    None -> "Custom"
-    Add -> "Add"
-    Sum -> "Sum"
+    None      -> "Custom"
+    Add       -> "Add"
+    Sum       -> "Sum"
     MotorLoop -> "MotorLoop"
 
 
@@ -88,8 +92,10 @@ instance FromJSON Example where
 --             , src     :: [(Address, Instruction (Data Int32))]
 --             } deriving Generic
 
+type NodeId = Int
+
 data IDEState =
-  IDEState { _trace                 :: TVar (Trace Context)
+  IDEState { _trace                 :: TVar (Trace)
            , _displayUnreachable    :: TMVar Bool
            , _displayUnreachableVal :: Bool
 
@@ -107,7 +113,7 @@ data IDEState =
            , _activeInitState       :: TMVar Context
            , _activeInitStateVal    :: Context
 
-           , _source                :: [(Address, Instruction (Data Int32))]
+           , _source                :: [(CAddress, Instruction (Data Int32))]
 
            , _solving               :: TMVar ()
 
@@ -119,11 +125,9 @@ type App a = ( HasCallStack
              , ?logger :: LogAction (Widget HTML) Message
              , ?ide :: IDEState) => Widget HTML a
 
-emptyCtx :: Context
-emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
+-- emptyCtx :: Context
+-- emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
 
-emptyTrace :: Trace Context
-emptyTrace = mkTrace (Node 0 emptyCtx) []
 
 emptyStats :: SymExecStats
 emptyStats = MkSymExecStats 0

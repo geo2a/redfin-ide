@@ -8,48 +8,52 @@ module Redfin.IDE.Types.Save (saveIDE, loadIDE) where
 
 import           Control.Exception
 
-import           Colog                        (pattern D, HasLog (..),
-                                               pattern I, LogAction (..),
+import           Colog                        (HasLog (..), LogAction (..),
                                                Message, Severity, WithLog,
+                                               pattern D, pattern I,
                                                richMessageAction)
 import           Control.Concurrent.STM
 import           Control.Monad                (unless)
 import           Control.Monad.IO.Class
-import           Data.Aeson                   as JSON hiding (decode)
+import           Data.Aeson                   as JSON hiding (Value, decode)
 import           Data.Aeson.Encode.Pretty     as JSON
 import           Data.Bifunctor               (second)
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as L
 import           Data.Functor
 import           Data.Int                     (Int32)
+import           Data.IntMap                  (IntMap)
+import qualified Data.IntMap                  as IntMap
 import           Data.Text                    (Text)
 import qualified Data.Text                    as Text
 import           GHC.Generics
 import           Prelude                      hiding (log)
 
 import           ISA.Assembly
+import           ISA.Backend.Symbolic.Zipper  hiding (_trace)
 import           ISA.Types
+import           ISA.Types.Context            hiding (Context)
 import           ISA.Types.Instruction
 import qualified ISA.Types.Instruction.Decode as ISA
 import qualified ISA.Types.Instruction.Encode as ISA
 import           ISA.Types.Symbolic
-import           ISA.Types.Symbolic.Context
+import           ISA.Types.Symbolic.Address
 import           ISA.Types.Symbolic.SMT
-import           ISA.Types.Symbolic.Trace
+import           ISA.Types.Tree
 
 import           Redfin.IDE.Types
 
 -- | Save the state of the IDE for serialisation and persistent storing as a file
 data Save =
-  MkSave { _saveTrace              :: Trace Context
+  MkSave { _saveTrace              :: Trace
          , _saveDisplayUnreachabel :: Bool
          , _saveSteps              :: Steps
          , _saveTimeout            :: Int
          , _saveActiveNode         :: NodeId
          , _saveExample            :: Example
          , _saveInitState          :: Context
-         , _saveSource             :: [(Address, InstructionCode)]
-         } deriving (Show, Generic, ToJSON, FromJSON)
+         , _saveSource             :: [(CAddress, InstructionCode)]
+         } deriving (Generic, ToJSON, FromJSON)
 
 -- | Freeze the mutable variables from the IDE state
 createSave :: IDEState -> IO Save
@@ -74,8 +78,10 @@ restoreSave save = do
                , _timeoutVal = _saveTimeout save
                , _activeExampleVal = _saveExample save
                , _activeInitStateVal = _saveInitState save
-               , _source = map (second (maybe (Instruction Halt) id . ISA.decode))
-                               (_saveSource save)
+               , _source =
+                 map (second (maybe (Instruction (Halt @Value)) id
+                               . ISA.decode))
+                 (_saveSource save)
                }
 
 -- | Save the IDE state into a file

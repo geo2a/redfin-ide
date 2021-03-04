@@ -13,32 +13,33 @@ import qualified Data.Text                    as Text
 import qualified Data.Tree                    as Tree
 import           Prelude                      hiding (div, id, span)
 
+import           ISA.Backend.Symbolic.Zipper
 import           ISA.Types
+import           ISA.Types.Context            hiding (Context, showIR)
 import           ISA.Types.Instruction.Decode (toInstruction)
+import           ISA.Types.Key
 import           ISA.Types.SBV
 import           ISA.Types.Symbolic           (Sym (..))
-import           ISA.Types.Symbolic.Context   hiding (showIR)
-import           ISA.Types.Symbolic.Trace
 
 import           Redfin.IDE.Widget
 
-showIR :: Sym -> Text
-showIR v =
+showIR :: Data Sym -> Text
+showIR (MkData v) =
   case toInstruction v of
     Left _  -> "uninitialised"
     Right i -> Text.pack $ show i
 
-fancyPathConstraint :: Sym -> Widget HTML a
+fancyPathConstraint :: (Data Sym) -> Widget HTML a
 fancyPathConstraint =
   ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
-  reverse . map conjunct . splitToplevelConjs
+  reverse . map conjunct . splitToplevelConjs . _unData
 
-fancyConstraints :: [(Text, Sym)] -> Widget HTML a
+fancyConstraints :: [(Text, (Data Sym))] -> Widget HTML a
 fancyConstraints =
   ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
-  reverse . map (conjunct . snd)
+  reverse . map (conjunct . _unData . snd)
 
 fancySolution :: Maybe SMTResult -> Widget HTML a
 fancySolution = \case
@@ -60,26 +61,27 @@ splitToplevelConjs = go []
           SAnd x y -> go (x:xs) y
           SAny x   -> (SAny x):xs
           SConst x -> (SConst x):xs
-          x -> x : xs
+          x        -> x : xs
 
 conjunct :: Sym -> Widget HTML a
 conjunct = \case
-  (SAdd x y) -> binop " + " x y
-  (SSub x y) -> binop " - " x y
-  (SMul x y) -> binop " * " x y
-  (SDiv x y) -> binop " / " x y
-  (SMod x y) -> unop " % " x
-  (SAbs x  ) -> text "|" <|> span [] [conjunct x] <|> text "|"
+  (SAdd x y)   -> binop " + " x y
+  (SSub x y)   -> binop " - " x y
+  (SMul x y)   -> binop " * " x y
+  (SDiv x y)   -> binop " / " x y
+  (SMod x y)   -> unop " % " x
+  (SAbs x  )   -> text "|" <|> span [] [conjunct x] <|> text "|"
 
-  (SConst x) -> text . Text.pack . show $ x
-  (SAny n  ) -> text n
+  (SConst x)   -> text . Text.pack . show $ x
+  (SAny n  )   -> text n
+  (SPointer p) -> text . Text.pack . show $ p
 
-  (SAnd x y) -> binop " ∧ " x y
-  (SOr  x y) -> binop " ∨ " x y
-  (SEq  x y) -> binop " == " x y
-  (SGt  x y) -> binop " > " x y
-  (SLt  x y) -> binop " < " x y
-  (SNot b  ) -> unop "¬ " b
+  (SAnd x y)   -> binop " ∧ " x y
+  (SOr  x y)   -> binop " ∨ " x y
+  (SEq  x y)   -> binop " == " x y
+  (SGt  x y)   -> binop " > " x y
+  (SLt  x y)   -> binop " < " x y
+  (SNot b  )   -> unop "¬ " b
 
   where
     unop op x = span [classList [("conjunct", True)]]
@@ -100,7 +102,7 @@ displayContext :: Maybe Context -> Widget HTML a
 displayContext x =
   case x of
     Nothing -> text $ "Oops: no such state in the trace"
-    Just (MkContext vars pc cs solution) ->
+    Just ctx@(MkContext vars store pc cs solution) ->
       let ir = Map.findWithDefault 0 IR vars
 
           h  = Text.pack . show $ Map.findWithDefault 0 (F Halted) vars
@@ -131,6 +133,22 @@ displayContext x =
                   , li [] [keyTag (Reg R3), span [] [text $ " : " <> r3]]
                   ]
                 ]
+            , li [] [
+                h4 [] [text "Memory"],
+                ul [] $
+                  map (\(a, v) -> li [] [keyTag a
+                                        , span [] [text $ " : " <> (Text.pack . show $ v)]])
+                      (dumpMemory ctx)
+                ]
+
+            , li [] [
+                h4 [] [text "Symbolic store"],
+                ul [] $
+                  map (\(a, v) -> li [] [keyTag a
+                                        , span [] [text $ " : " <> (Text.pack . show $ v)]])
+                      (Map.assocs $ _store ctx)
+                ]
+
             , li [] [
                 h4 [] [text "Constraints"],
                 fancyConstraints cs

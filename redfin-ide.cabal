@@ -22,9 +22,18 @@ executable redfin-ide-exe
   main-is: Main.hs
   other-modules:
       Redfin.IDE,
+      Redfin.IDE.Types,
+      Redfin.IDE.Types.Save,
       Redfin.IDE.State,
       Redfin.IDE.Trace,
-      Redfin.IDE.Widget.Top
+      Redfin.IDE.Widget,
+      Redfin.IDE.Widget.InitialState,
+      Redfin.IDE.Widget.Source,
+      Redfin.IDE.Widget.State,
+      Redfin.IDE.Widget.Trace,
+      Redfin.IDE.Widget.Top,
+      Redfin.IDE.Widget.Top.Examples,
+      Redfin.IDE.Widget.Top.Verification
   hs-source-dirs:
       src
   default-extensions: LambdaCase
@@ -35,6 +44,7 @@ executable redfin-ide-exe
                     , ImplicitParams
                     , PatternSynonyms
                     , TupleSections
+                    , TypeApplications
 
   GHC-options:      -Wall
                     -fno-warn-name-shadowing

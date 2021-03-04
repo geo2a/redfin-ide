@@ -6,58 +6,60 @@ module Redfin.IDE.Widget.InitialState
   ( initStateWidget
   ) where
 
-import           Colog                      (pattern D, pattern E, HasLog (..),
-                                             pattern I, LogAction, Message)
+import           Colog                       (HasLog (..), LogAction, Message,
+                                              pattern D, pattern E, pattern I)
 
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica             hiding (id)
-import qualified Concur.Replica.DOM.Events  as P
-import           Control.Applicative        (Alternative, empty, (<|>))
+import           Concur.Replica              hiding (id)
+import qualified Concur.Replica.DOM.Events   as P
+import           Control.Applicative         (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
-import           Control.Monad.IO.Class     (liftIO)
+import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative   as MultiAlternative
+import qualified Control.MultiAlternative    as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                 as A
-import           Data.Either                (lefts, rights)
-import           Data.Functor               (void)
-import           Data.List                  (union)
-import qualified Data.Map.Strict            as Map
-import           Data.Maybe                 (catMaybes, listToMaybe)
-import           Data.Monoid                (First (..))
+import qualified Data.Aeson                  as A
+import           Data.Bifunctor
+import           Data.Either                 (lefts, rights)
+import           Data.Functor                (void)
+import           Data.List                   (union)
+import qualified Data.Map.Strict             as Map
+import           Data.Maybe                  (catMaybes, listToMaybe)
 import           Data.Monoid
-import           Data.Text                  (Text)
-import qualified Data.Text                  as Text
-import qualified Data.Text.Lazy.Builder     as Text
-import qualified Data.Text.Read             as Text
-import           Debug.Trace                as Debugger
-import           Prelude                    hiding (div, log, lookup, span)
-import           Replica.VDOM.Render        as Render
-import           Text.Read                  (readEither, readMaybe)
+import           Data.Monoid                 (First (..))
+import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
+import qualified Data.Text.Lazy.Builder      as Text
+import qualified Data.Text.Read              as Text
+import           Debug.Trace                 as Debugger
+import           Prelude                     hiding (div, log, lookup, span)
+import           Replica.VDOM.Render         as Render
+import           Text.Read                   (readEither, readMaybe)
 
+import           ISA.Backend.Symbolic.Zipper
 import           ISA.Types
+import           ISA.Types.Context           hiding (Context)
+import           ISA.Types.Key
+import           ISA.Types.Prop
 import           ISA.Types.Symbolic
-import           ISA.Types.Symbolic.Context
 import           ISA.Types.Symbolic.Parser
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
-parseValue :: Text -> Key -> Maybe (Key, Sym)
-parseValue txt = \case
-  Reg r -> (Reg r,) <$>
-    case readMaybe (Text.unpack txt) of
-      Just v  -> Just . SConst . CInt32 $ v
-      Nothing -> Just $ SAny txt
-  Addr a ->  (Addr a,) <$>
-    case readMaybe (Text.unpack txt) of
-      Just v  -> Just . SConst . CInt32 $ v
-      Nothing -> Just $ SAny txt
-  F f -> (F f,) . SConst . CBool <$> readMaybe (Text.unpack txt)
-  IC -> error "parseSym: not implemented for key IC"
-  IR -> error "parseSym: not implemented for key IR"
-  Prog _ -> error "parseSym: not implemented for key Prog"
+parseValue :: Text -> Key -> Either Text (Key, Data Sym)
+parseValue txt k =
+  (k,) . MkData <$> parseSym "" txt
+  -- Reg r  -> (Reg r,) . MkData <$>
+  -- Addr a ->  (Addr a,) . MkData <$> parseSym "" txt
+  --   case readMaybe (Text.unpack txt) of
+  --     Just v  -> Just . SConst . CInt32 $ v
+  --     Nothing -> Just $ SAny txt
+  -- F f -> (F f,) . SConst . CBool <$> readMaybe (Text.unpack txt)
+  -- IC -> error "parseSym: not implemented for key IC"
+  -- IR -> error "parseSym: not implemented for key IR"
+  -- Prog _ -> error "parseSym: not implemented for key Prog"
 
 initStateWidget :: Context -> App a
 initStateWidget ctx = do
@@ -69,13 +71,14 @@ initStateWidget ctx = do
             , Right <$> constrWidget bufferConstraints]
   let bindings = either id (const relevant) xs
       constraints = either (const cs) id xs
-  let xs' = catMaybes . map (uncurry (flip parseValue)) . Map.toList $ bindings
+  let xs' = rights . map (uncurry (flip parseValue)) . Map.toList $ bindings
   -- log I $ Text.pack (show xs')
   let newInitState =
         (MkContext (Map.union (Map.fromList xs') (_bindings ctx))
-                  (SConst $ CBool True)
-                  (Map.assocs constraints)
-                  Nothing)
+                   (Map.empty)
+                   true
+                   (Map.assocs constraints)
+                   Nothing)
   when (newInitState /= (_activeInitStateVal ?ide)) $ do
     liftIO . atomically $ putTMVar (_activeInitState ?ide) newInitState
     pure ()
@@ -141,14 +144,14 @@ addBindingWidget buffer = do
                             ]
                      ]
                ]
-  case parseKey (Text.unpack keyTxt) of
-    Nothing -> addBindingWidget buffer
-    Just key -> do
+  case parseKey keyTxt of
+    Left _ -> addBindingWidget buffer
+    Right key -> do
       liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert key value ctx)
 
 --------------------------------------------------------------------------------
 
-constrWidget :: TVar (Map.Map Text Sym) -> App (Map.Map Text Sym)
+constrWidget :: TVar (Map.Map Text (Data Sym)) -> App (Map.Map Text (Data Sym))
 constrWidget buffer = do
   cs <- liftIO $ readTVarIO buffer
   let inps = (map (constrInp buffer) (Map.assocs cs))
@@ -161,7 +164,7 @@ constrWidget buffer = do
               ]]
   liftIO . atomically $ readTVar buffer
 
-constrInp :: TVar (Map.Map Text Sym) -> (Text, Sym) -> Widget HTML ()
+constrInp :: TVar (Map.Map Text (Data Sym)) -> (Text, Data Sym) -> Widget HTML ()
 constrInp buffer (name, expr) = do
   let exprTxt = Text.pack $ show expr
   new <- orr
@@ -178,13 +181,13 @@ constrInp buffer (name, expr) = do
       Just (Left err) -> text err
       Just (Right sym) -> do
         liftIO . atomically $
-          modifyTVar' buffer (\ctx -> Map.insert name sym ctx)
+          modifyTVar' buffer (\ctx -> Map.insert name (MkData sym) ctx)
       Nothing -> do
         liftIO . atomically $ do
           modifyTVar' buffer (\ctx -> Map.delete name ctx)
 
 
-addConstraintWidget :: TVar (Map.Map Text Sym) -> Widget HTML ()
+addConstraintWidget :: TVar (Map.Map Text (Data Sym)) -> Widget HTML ()
 addConstraintWidget  buffer = do
   name <- orr [ span [classList [("initKey", True)]]
                 [ input [ targetValue . target <$> onChange
@@ -212,4 +215,4 @@ addConstraintWidget  buffer = do
   case parseSym (Text.unpack name) expr of
     Left err -> orr [text err, addConstraintWidget buffer]
     Right sym ->
-      liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert name sym ctx)
+      liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert name (MkData sym) ctx)

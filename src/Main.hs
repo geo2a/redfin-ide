@@ -72,7 +72,7 @@ index =
 main :: IO ()
 main = do
   CSS.compileFile "styles/source.scss" CSS.defaultSassOptions >>=
-    \case Left err -> print err
+    \case Left err  -> print err
           Right css -> writeFile "styles/custom.css" (CSS.resultString css)
   run 8080
       index
