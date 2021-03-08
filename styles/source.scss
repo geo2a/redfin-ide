@@ -130,8 +130,13 @@ $header-height: 140px;
     align-self: start;
     position: sticky;
     top: $header-height + $grid-gap;
-    z-index: 1;
+    z-index: 0;
 
+    & .context { 
+        max-height: 75vh; overflow-y: auto; overflow-x: hidden; 
+        & .context-data { }
+    }
+    
     & .constraint {
         position: relative;
         list-style: none;

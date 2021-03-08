@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 module Redfin.IDE.Widget where
 
 import           Concur.Core
@@ -14,45 +13,11 @@ import qualified Data.Set                  as Set
 import           Data.Text                 (Text, unpack)
 import           Prelude                   hiding (span)
 
-
--- | Run widgets in parallel and wait for all to produce a value
---   OR exit early if the LAST one returns
---   TODO: this is a sub optimal piece of code which might brake and will need refactoring
---   Partially adopted from:
---   https://github.com/purescript-concur/purescript-concur-core/blob/253be02725eac8f3515f75a4542602301d24a749/src/Concur/Core/Types.purs#L156
-joinOrLast :: Ord a => [Widget HTML a] -> Widget HTML [a]
-joinOrLast = (toList . Set.fromList . toList <$>) . andd' . Seq.fromList
-  where
-    andd' :: Seq (Widget HTML a) -> Widget HTML (Seq a)
-    andd' ws = go ws Set.empty
-      where
-        go xs is = do
-          (i, e) <- Seq.foldrWithIndex (\i w r -> (fmap (i,) w) <|> r) empty ws
-          let xs' = Seq.deleteAt i xs
-              is' = Set.insert i is
-          if
-            Set.member (length ws - 1) is'
-            then pure (Seq.singleton e)
-            else do
-              rest <- go xs' is'
-              pure $ e <| rest
-
-joinThem :: Ord a => [Widget HTML a] -> Widget HTML [a]
-joinThem = (toList . Set.fromList . toList <$>) . andd' . Seq.fromList
-  where
-    andd' :: Seq (Widget HTML a) -> Widget HTML (Seq a)
-    andd' ws = go ws Set.empty
-      where
-        go xs is = do
-          (i, e) <- Seq.foldrWithIndex (\i w r -> (fmap (i,) w) <|> r) empty ws
-          let xs' = Seq.deleteAt i xs
-              is' = Set.insert i is
-          rest <- go xs' is'
-          pure $ e <| rest
-
+-- | Add a hover tooltip to a widget
 tooltipped :: Text -> Widget HTML a -> Widget HTML a
 tooltipped tip w = span [classList [("tooltip", True)]]
   [w, span [classList [("tooltiptext", True)]] [text tip]]
 
+-- | Extract an event's value
 getValue :: BaseEvent -> String
 getValue = unpack . targetValue . target

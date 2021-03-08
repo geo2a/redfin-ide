@@ -15,7 +15,7 @@ import           Prelude                      hiding (div, id, span)
 
 import           ISA.Backend.Symbolic.Zipper
 import           ISA.Types
-import           ISA.Types.Context            hiding (Context, showIR)
+import           ISA.Types.Context            hiding (Context)
 import           ISA.Types.Instruction.Decode (toInstruction)
 import           ISA.Types.Key
 import           ISA.Types.SBV
@@ -29,18 +29,21 @@ showIR (MkData v) =
     Left _  -> "uninitialised"
     Right i -> Text.pack $ show i
 
+-- | Display path condition
 fancyPathConstraint :: (Data Sym) -> Widget HTML a
 fancyPathConstraint =
   ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
   reverse . map conjunct . splitToplevelConjs . _unData
 
+-- | Display constraints on the symbolic variables
 fancyConstraints :: [(Text, (Data Sym))] -> Widget HTML a
 fancyConstraints =
   ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
   reverse . map (conjunct . _unData . snd)
 
+-- | Display the solution of the path condition, if available
 fancySolution :: Maybe SMTResult -> Widget HTML a
 fancySolution = \case
   Nothing -> text "Not solved: press solve to start"
@@ -98,6 +101,7 @@ conjunct = \case
                    , span [] [text ")"]
                    ]
 
+-- | Display a context
 displayContext :: Maybe Context -> Widget HTML a
 displayContext x =
   case x of
@@ -118,39 +122,44 @@ displayContext x =
             [ li [] [keyTag IR, span [] [text $ " : " <> showIR ir]]
             , li [] [
                 h4 [] [text "Flags"],
+                div [classList [("context-data", True)]] . (:[]) $
                 ul []
-                  [ li [] [keyTag (F Halted), span [] [text $ " : " <> h]]
-                  , li [] [keyTag (F Condition), span [] [text $ " : " <> c]]
-                  , li [] [keyTag (F Overflow), span [] [text $ " : " <> o]]
+                  [ li [] [keyTag (F Halted), span [] [text $ " = " <> h]]
+                  , li [] [keyTag (F Condition), span [] [text $ " = " <> c]]
+                  , li [] [keyTag (F Overflow), span [] [text $ " = " <> o]]
                   ]
                 ]
             , li [] [
                 h4 [] [text "Registers"],
+                div [classList [("context-data", True)]] . (:[]) $
                 ul []
-                  [ li [] [keyTag (Reg R0), span [] [text $ " : " <> r0]]
-                  , li [] [keyTag (Reg R1), span [] [text $ " : " <> r1]]
-                  , li [] [keyTag (Reg R2), span [] [text $ " : " <> r2]]
-                  , li [] [keyTag (Reg R3), span [] [text $ " : " <> r3]]
+                  [ li [] [keyTag (Reg R0), span [] [text $ " = " <> r0]]
+                  , li [] [keyTag (Reg R1), span [] [text $ " = " <> r1]]
+                  , li [] [keyTag (Reg R2), span [] [text $ " = " <> r2]]
+                  , li [] [keyTag (Reg R3), span [] [text $ " = " <> r3]]
                   ]
                 ]
             , li [] [
                 h4 [] [text "Memory"],
+                div [classList [("context-data", True)]] . (:[]) $
                 ul [] $
                   map (\(a, v) -> li [] [keyTag a
-                                        , span [] [text $ " : " <> (Text.pack . show $ v)]])
+                                        , span [] [text $ " = " <> (Text.pack . show $ v)]])
                       (dumpMemory ctx)
                 ]
 
             , li [] [
                 h4 [] [text "Symbolic store"],
+                div [classList [("context-data", True)]] . (:[]) $
                 ul [] $
-                  map (\(a, v) -> li [] [keyTag a
-                                        , span [] [text $ " : " <> (Text.pack . show $ v)]])
+                  map (\(a, v) -> li [] [text a
+                                        , span [] [text $ " = " <> (Text.pack . show $ v)]])
                       (Map.assocs $ _store ctx)
                 ]
 
             , li [] [
                 h4 [] [text "Constraints"],
+                div [classList [("context-data", True)]] . (:[]) $
                 fancyConstraints cs
                 ]
             , li [] [
@@ -160,6 +169,7 @@ displayContext x =
             , li [] [
                 h4 [] [tooltipped "Path condition /\\ constraints"
                        (text "Reachability condition")],
+                div [classList [("context-data", True)]] . (:[]) $
                 fancySolution solution
                 ]
             ]

@@ -1,6 +1,7 @@
 {-# LANGUAGE ImplicitParams  #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes      #-}
+
 module Redfin.IDE.Trace (htmlTrace) where
 
 import           Colog                       (HasLog (..), LogAction, Message,
@@ -20,9 +21,9 @@ import qualified Data.Text                   as Text
 import           Prelude                     hiding (div, id, log, span)
 
 import           ISA.Backend.Symbolic.Zipper
-import           ISA.Types                   hiding (not)
+import           ISA.Types
 import           ISA.Types.Context           hiding (Context)
-import           ISA.Types.Tree              (Tree (..))
+import           ISA.Types.Tree              (Tree (..), draw)
 
 import           ISA.Types.ZeroOneTwo
 
@@ -31,7 +32,8 @@ import           Redfin.IDE.Types
 
 -- | Build an interactive view of a trace
 htmlTrace :: Trace -> App a
-htmlTrace trace =
+htmlTrace trace = do
+  log D $ Text.pack . unlines $ draw (_layout trace)
   div [classList [("tree", True)]]
     [ ul [] [htmlTree  (_states trace) (_layout trace)]]
 
@@ -75,7 +77,9 @@ node n = do
   case ev of
     Nothing  -> node n
     Just e -> do
-      liftIO . atomically $
-        writeTQueue (_activeNodeQueue ?ide) n
-      log D $ "Active node changed to " <> Text.pack (show n)
+      void . liftIO . atomically $
+        tryPutTMVar (_activeNode ?ide) n >>= \case
+          True  -> pure n
+          False -> swapTMVar (_activeNode ?ide) n
+--      log D $ "Active node changed to " <> Text.pack (show n')
       node n

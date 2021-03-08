@@ -73,7 +73,7 @@ saveWidget (save, load) msg = do
                                                            , onChange]]
              , Nothing <$ span [classList [("notice", True)]]
                                [ maybe empty text msg
-                               , liftIO (threadDelay $ 5 * 10^6)]
+                               , liftIO (threadDelay $ (5 * 10^6))]
              ]
     ] >>= \case Just (Left Nothing) -> do
                   log D $ "IDE saved into" <> Text.pack save
@@ -101,11 +101,6 @@ symExecWidget steps timeout = do
         Left _      -> symExecWidget steps timeout
         Right newSteps ->
           symExecWidget newSteps timeout
-    StepsChanged e ->
-      case readEither e of
-        Left _      -> symExecWidget steps timeout
-        Right newTimeout ->
-          symExecWidget steps newTimeout
     RunPressed -> do
       div [classList [ ("box", True), ("symExecWidget", True)]]
           [ h4 [] [ text ("Symbolic simulator")]
@@ -117,6 +112,7 @@ symExecWidget steps timeout = do
           ide' = ?ide {_displayUnreachableVal = display'}
       liftIO . atomically $ putTMVar (_displayUnreachable ?ide) display'
       let ?ide = ide' in symExecWidget steps timeout
+    TimeoutChanged _ -> symExecWidget steps timeout
   where
     stepsTxt = Text.pack . show $ steps
     timeoutTxt = Text.pack . show $ timeout

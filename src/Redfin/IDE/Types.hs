@@ -33,7 +33,8 @@ import           GHC.Stack                       (HasCallStack, callStack,
 import           Data.Aeson                      as JSON
 
 import           ISA.Assembly
-import           ISA.Backend.Symbolic.Zipper
+import           ISA.Backend.Symbolic.Zipper     hiding (_trace)
+import qualified ISA.Backend.Symbolic.Zipper     as Engine
 import           ISA.Backend.Symbolic.Zipper.Run
 import           ISA.Types
 import           ISA.Types.Context               hiding (Context)
@@ -94,8 +95,15 @@ instance FromJSON Example where
 
 type NodeId = Int
 
+_trace :: IDEState -> TVar Trace
+_trace = Engine._trace . _engine
+
 data IDEState =
-  IDEState { _trace                 :: TVar (Trace)
+  IDEState { _engine                :: EngineState
+
+             --_trace                 :: TVar (Trace)
+
+
            , _displayUnreachable    :: TMVar Bool
            , _displayUnreachableVal :: Bool
 
@@ -105,7 +113,8 @@ data IDEState =
            , _timeout               :: TMVar Int
            , _timeoutVal            :: Int
 
-           , _activeNodeQueue       :: TQueue NodeId
+           , _activeNode            :: TMVar NodeId
+           , _activeNodeVal         :: NodeId
 
            , _activeExample         :: TMVar Example
            , _activeExampleVal      :: Example
@@ -125,16 +134,13 @@ type App a = ( HasCallStack
              , ?logger :: LogAction (Widget HTML) Message
              , ?ide :: IDEState) => Widget HTML a
 
--- emptyCtx :: Context
--- emptyCtx = MkContext Map.empty (SConst (CBool True)) [] Nothing
-
-
 emptyStats :: SymExecStats
 emptyStats = MkSymExecStats 0
 
 emptyIDE :: IO IDEState
 emptyIDE = do
   trace  <- newTVarIO emptyTrace
+  engine <- mkEngineState trace
   displayUnreachable <- newEmptyTMVarIO
   let displayUnreachableVal = True
 
@@ -144,7 +150,7 @@ emptyIDE = do
   timeout <- newEmptyTMVarIO
   let timeoutVal = 100
 
-  activeNodeQueue <- newTQueueIO
+  activeNode <- newTMVarIO 0
 
   activeExample <- newEmptyTMVarIO
   let activeExampleVal = None
@@ -157,7 +163,7 @@ emptyIDE = do
   solving <- newEmptyTMVarIO
 
   pure $ IDEState
-    trace
+    engine
     displayUnreachable
     displayUnreachableVal
 
@@ -167,7 +173,8 @@ emptyIDE = do
     timeout
     timeoutVal
 
-    activeNodeQueue
+    activeNode
+    0
 
     activeExample
     activeExampleVal

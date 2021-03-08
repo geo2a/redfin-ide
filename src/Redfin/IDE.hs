@@ -40,7 +40,7 @@ import           Replica.VDOM.Render             as Render
 import           Text.Read                       (readEither)
 
 import           ISA.Backend.Symbolic.Zipper     hiding (_trace)
-import qualified ISA.Backend.Symbolic.Zipper.Run as ISA (runModel)
+import qualified ISA.Backend.Symbolic.Zipper.Run as ISA
 import qualified ISA.Example.Add                 as ExampleAdd
 import qualified ISA.Example.Sum                 as ExampleSum
 import           ISA.Types
@@ -87,6 +87,7 @@ data Event = Proceed
            | InitStateChanged Context
            | SolveButtonPressed
            | TraceDisplayToggled
+           | ActiveNodeChanged Int
 
 elimEvent :: Event -> App IDEState
 elimEvent = \case
@@ -96,45 +97,51 @@ elimEvent = \case
   ExampleChanged ex -> do
     log D $ "Example changed to " <> Text.pack (show ex)
     ide' <- liftIO $ swapExample ?ide ex
-    oldQueue <- liftIO . atomically $ do
+    liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
-      cleanupQueues ide'
+      putTMVar (_activeNode ?ide) 0
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
-    trace <- liftIO $ ISA.runModel steps (_activeInitStateVal ?ide)
-    oldQueue <- liftIO . atomically $ do
-      writeTVar (_trace ?ide) trace
-      cleanupQueues ?ide
+    env <- liftIO $ evalEngine (ISA.runModelImpl steps) (_activeInitStateVal ?ide)
+    -- liftIO . atomically $ do
+    --   writeTVar (_trace ?ide) trace
+    --  cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     -- log I $ "Stats: " <> (Text.pack . show $ stats)
-    pure (?ide {_stepsVal = steps})
+    pure (?ide {_stepsVal = steps, _engine = env})
   TimeoutChanged timeout -> do
     log D $ "Timeout changed to " <> Text.pack (show timeout)
     pure (?ide {_timeoutVal = timeout})
   InitStateChanged ctx -> do
     log D $ "Init state changed"
     let ide' = ?ide {_activeInitStateVal = ctx}
-    oldQueue <- liftIO . atomically $ do
+    liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
-      cleanupQueues ide'
+    --  cleanupQueues ide'
     pure ide'
   SolveButtonPressed -> do
     log D $ "Solve button pressed"
     trace <- liftIO . atomically $ readTVar (_trace ?ide)
-    oldQueue <- liftIO . atomically $ do
+    -- oldQueue <- liftIO . atomically $ do
+    --   writeTVar (_trace ?ide) trace
+    --   cleanupQueues ?ide
+    liftIO . atomically $ do
       writeTVar (_trace ?ide) trace
-      cleanupQueues ?ide
     log D $ "Trace solved"
     pure ?ide
   TraceDisplayToggled -> do
     log D $ "Trace display unreachable checkbox toggled"
     let display' = not (_displayUnreachableVal ?ide)
     pure $ ?ide {_displayUnreachableVal = display'}
-  where cleanupQueues :: IDEState -> STM ()
-        cleanupQueues ide =
-          flushTQueue (_activeNodeQueue ide) *>
-          writeTQueue (_activeNodeQueue ide) 0
+  ActiveNodeChanged n -> do
+    log D $ "Active node changed to " <> Text.pack (show n)
+    pure $ ?ide {_activeNodeVal = n}
+  where
+    -- cleanupQueues :: IDEState -> STM ()
+    -- cleanupQueues ide =
+    --   flushTQueue (_activeNodeQueue ide) *>
+    --   writeTQueue (_activeNodeQueue ide) 0
 
 ideWidget :: App a
 ideWidget = do
@@ -144,7 +151,7 @@ ideWidget = do
       , Proceed <$ MultiAlternative.orr
                        [ traceWidget
                        , stateWidget]
-
+      , ActiveNodeChanged <$> (liftIO . atomically . takeTMVar $ _activeNode ?ide)
       , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
       , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
       , TimeoutChanged <$> (liftIO . atomically . takeTMVar $ _timeout ?ide)
