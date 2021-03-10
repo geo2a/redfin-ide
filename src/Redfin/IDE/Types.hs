@@ -45,6 +45,7 @@ import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Address
 import           ISA.Types.Symbolic.SMT
 import           ISA.Types.Tree
+import           ISA.Types.ZeroOneTwo
 
 -- | Either-like datatype for tracking new/old content of tags
 data Contents a b = Old a
@@ -81,17 +82,6 @@ instance Show Example where
 instance ToJSON Example where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON Example where
--- -- | Pure values of the current IDE state
--- --   This datatypes' accessors will never be used in the code directly,
--- --   instead the fields will be accessed through smart accessors of 'IDEState'
--- data IDEVals =
---   MkIDEVals { dispUnrVal :: Bool
---             , stps    :: Steps
---             , tmout   :: Int
---             , actEx   :: Example
---             , actSt   :: Context
---             , src     :: [(Address, Instruction (Data Int32))]
---             } deriving Generic
 
 type NodeId = Int
 
@@ -100,9 +90,7 @@ _trace = Engine._trace . _engine
 
 data IDEState =
   IDEState { _engine                :: EngineState
-
-             --_trace                 :: TVar (Trace)
-
+           , _traceChanged          :: TMVar (Maybe (Tree Int ()))
 
            , _displayUnreachable    :: TMVar Bool
            , _displayUnreachableVal :: Bool
@@ -113,8 +101,7 @@ data IDEState =
            , _timeout               :: TMVar Int
            , _timeoutVal            :: Int
 
-           , _activeNode            :: TMVar NodeId
-           , _activeNodeVal         :: NodeId
+           , _activeNode            :: TVar NodeId
 
            , _activeExample         :: TMVar Example
            , _activeExampleVal      :: Example
@@ -141,6 +128,7 @@ emptyIDE :: IO IDEState
 emptyIDE = do
   trace  <- newTVarIO emptyTrace
   engine <- mkEngineState trace
+  traceChanged <- newEmptyTMVarIO
   displayUnreachable <- newEmptyTMVarIO
   let displayUnreachableVal = True
 
@@ -150,7 +138,7 @@ emptyIDE = do
   timeout <- newEmptyTMVarIO
   let timeoutVal = 100
 
-  activeNode <- newTMVarIO 0
+  activeNode <- newTVarIO (-1)
 
   activeExample <- newEmptyTMVarIO
   let activeExampleVal = None
@@ -164,6 +152,9 @@ emptyIDE = do
 
   pure $ IDEState
     engine
+
+    traceChanged
+
     displayUnreachable
     displayUnreachableVal
 
@@ -174,7 +165,6 @@ emptyIDE = do
     timeoutVal
 
     activeNode
-    0
 
     activeExample
     activeExampleVal

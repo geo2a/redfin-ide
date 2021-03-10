@@ -9,7 +9,7 @@
 
 module Redfin.IDE
   ( ideWidget
-  , mkIDE
+--  , mkIDE
   ) where
 
 import           Colog                           (HasLog (..), LogAction,
@@ -62,11 +62,6 @@ import           Redfin.IDE.Widget.Trace
 
 import qualified Debug.Trace                     as Debugger
 
--- | Cook the initial IDE state
-mkIDE :: Example -> IO IDEState
-mkIDE ex =
-  (flip swapExample) ex =<< emptyIDE
-
 leftPane :: App [(CAddress, Instruction (Data Int32))]
 leftPane = do
   section [classList [ ("pane", True)
@@ -87,7 +82,6 @@ data Event = Proceed
            | InitStateChanged Context
            | SolveButtonPressed
            | TraceDisplayToggled
-           | ActiveNodeChanged Int
 
 elimEvent :: Event -> App IDEState
 elimEvent = \case
@@ -99,14 +93,11 @@ elimEvent = \case
     ide' <- liftIO $ swapExample ?ide ex
     liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
-      putTMVar (_activeNode ?ide) 0
+      writeTVar (_activeNode ide') (-1)
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
     env <- liftIO $ evalEngine (ISA.runModelImpl steps) (_activeInitStateVal ?ide)
-    -- liftIO . atomically $ do
-    --   writeTVar (_trace ?ide) trace
-    --  cleanupQueues ?ide
     log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
     -- log I $ "Stats: " <> (Text.pack . show $ stats)
     pure (?ide {_stepsVal = steps, _engine = env})
@@ -118,14 +109,10 @@ elimEvent = \case
     let ide' = ?ide {_activeInitStateVal = ctx}
     liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
-    --  cleanupQueues ide'
     pure ide'
   SolveButtonPressed -> do
     log D $ "Solve button pressed"
     trace <- liftIO . atomically $ readTVar (_trace ?ide)
-    -- oldQueue <- liftIO . atomically $ do
-    --   writeTVar (_trace ?ide) trace
-    --   cleanupQueues ?ide
     liftIO . atomically $ do
       writeTVar (_trace ?ide) trace
     log D $ "Trace solved"
@@ -134,26 +121,18 @@ elimEvent = \case
     log D $ "Trace display unreachable checkbox toggled"
     let display' = not (_displayUnreachableVal ?ide)
     pure $ ?ide {_displayUnreachableVal = display'}
-  ActiveNodeChanged n -> do
-    log D $ "Active node changed to " <> Text.pack (show n)
-    pure $ ?ide {_activeNodeVal = n}
   where
-    -- cleanupQueues :: IDEState -> STM ()
-    -- cleanupQueues ide =
-    --   flushTQueue (_activeNodeQueue ide) *>
-    --   writeTQueue (_activeNodeQueue ide) 0
 
 ideWidget :: App a
 ideWidget = do
   event <- div [classList [("grid-container", True)]]
-      [ SaveLoaded <$> topPane
-      , SourceChanged <$> leftPane
-      , Proceed <$ MultiAlternative.orr
-                       [ traceWidget
-                       , stateWidget]
-      , ActiveNodeChanged <$> (liftIO . atomically . takeTMVar $ _activeNode ?ide)
-      , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
-      , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
+      [ Proceed <$ traceWidget
+      , Proceed <$ stateWidget 0
+      , orr [ SaveLoaded <$> topPane
+            , SourceChanged <$> leftPane
+            , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
+            , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
+            ]
       , TimeoutChanged <$> (liftIO . atomically . takeTMVar $ _timeout ?ide)
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
       , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solving ?ide)

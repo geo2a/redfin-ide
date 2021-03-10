@@ -44,17 +44,16 @@ swapExample :: IDEState -> Example -> IO IDEState
 swapExample ide = \case
   None -> emptyIDE
   Add -> pure ide { _source = assemble $ EAdd.addLowLevel
-               , _activeExampleVal = Add
-               , _stepsVal = 0
-               , _activeInitStateVal = EAdd.initCtx
-               }
+                  , _activeExampleVal = Add
+                  , _stepsVal = 0
+                  , _activeInitStateVal = EAdd.initCtx
+                  }
   Sum -> pure ide { _source = assemble $ ESum.sumArrayLowLevel
                   , _activeExampleVal = Sum
                   , _stepsVal = 0
                   , _activeInitStateVal = ESum.initCtx
                   }
   MotorLoop -> pure
-
     ide { _source = assemble $ ELoop.mc_loop
         , _activeExampleVal = MotorLoop
         , _stepsVal = 0
@@ -75,10 +74,10 @@ examplesWidget = do
                      exampleButton None
                  ]
            ]
-  liftIO . atomically $ putTMVar (_activeExample ?ide) e
+  liftIO . atomically $ orElse (putTMVar (_activeExample ?ide) e) (void $ swapTMVar (_activeExample ?ide) e)
   examplesWidget
   where exampleButton ex =
           button [ classList [ ("exampleButton", True)
-                        , ("activeExample", ex == _activeExampleVal ?ide)]
-            , ex <$ onClick]
-            [text (Text.pack $ show ex)]
+                             , ("activeExample", ex == _activeExampleVal ?ide)]
+                 , ex <$ onClick]
+          [text (Text.pack $ show ex)]

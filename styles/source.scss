@@ -339,7 +339,7 @@ $unreachable-grey: #7f8fa6;
     & .unreachable a::after {
         border-left: $border-width solid $unreachable-grey;
     }
-    & .leaf a::after {
+    & .halted a::after {
         display: none;
     }
 }

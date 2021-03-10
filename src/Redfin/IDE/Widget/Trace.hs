@@ -4,8 +4,8 @@ module Redfin.IDE.Widget.Trace
   ( traceWidget
   ) where
 
-import           Colog                     (pattern D, pattern E, HasLog (..),
-                                            pattern I, LogAction, Message)
+import           Colog                     (HasLog (..), LogAction, Message,
+                                            pattern D, pattern E, pattern I)
 import           Concur.Core
 import           Concur.Core.Types
 import           Concur.Replica            hiding (id)
@@ -50,3 +50,4 @@ traceWidget = widget
                      ]
           ]
           [htmlTrace trace]
+      widget

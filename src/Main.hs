@@ -78,6 +78,6 @@ main = do
       index
       defaultConnectionOptions
       static $ \_ -> do
-        ide <- liftIO $ mkIDE None
+        ide <- liftIO $ emptyIDE
         let ?ide = ide
             ?logger = simpleMessageAction in ideWidget

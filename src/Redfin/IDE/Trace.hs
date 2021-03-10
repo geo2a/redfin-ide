@@ -20,10 +20,12 @@ import           Data.Text                   (Text)
 import qualified Data.Text                   as Text
 import           Prelude                     hiding (div, id, log, span)
 
-import           ISA.Backend.Symbolic.Zipper
+import           ISA.Backend.Symbolic.Zipper hiding (_trace)
 import           ISA.Types
 import           ISA.Types.Context           hiding (Context)
-import           ISA.Types.Tree              (Tree (..), draw)
+import           ISA.Types.Key
+import           ISA.Types.Prop
+import           ISA.Types.Tree              (Tree (..), draw, locKey)
 
 import           ISA.Types.ZeroOneTwo
 
@@ -31,20 +33,20 @@ import           Redfin.IDE.State
 import           Redfin.IDE.Types
 
 -- | Build an interactive view of a trace
-htmlTrace :: Trace -> App a
+htmlTrace :: Trace -> App ()
 htmlTrace trace = do
   log D $ Text.pack . unlines $ draw (_layout trace)
   div [classList [("tree", True)]]
     [ ul [] [htmlTree  (_states trace) (_layout trace)]]
 
 -- | Traverse the layout tree and create interactive nodes
-htmlTree :: IntMap Context -> Tree Int () -> App a
+htmlTree :: IntMap Context -> Tree Int () -> App ()
 htmlTree states = \case
   Leaf n _               -> spawn Zero states n
   Trunk n child          -> spawn (One child) states n
   Branch n lchild rchild -> spawn (Two lchild rchild) states n
 
-spawn :: ZeroOneTwo (Tree Int ()) -> IntMap Context -> Int -> App a
+spawn :: ZeroOneTwo (Tree Int ()) -> IntMap Context -> Int -> App ()
 spawn children states n =
   case IntMap.lookup n states  of
     Nothing -> li [classList cs] []
@@ -58,28 +60,38 @@ spawn children states n =
   where
      cs = [ ("node", True)
           , ("reachable", maybe False (\x->x) (isReachable <$> IntMap.lookup n states))
-          , ("unreachable", maybe False (\x->x) (not . isReachable <$> IntMap.lookup n states))
+          , ("unreachable", maybe False (\x->x) (Prelude.not . isReachable <$> IntMap.lookup n states))
           , ("hidden", hidden [n] states)
           , ("has-hidden-children", False)
+          , ("halted", maybe False toBool (getBinding (F Halted) =<< (IntMap.lookup n states)))
              -- any (\(Tree.Node (Node i ctx) _) ->
              --        (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
           ]
      hidden xs states =
-       any (\ctx -> (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide))
+       any (\ctx -> (Prelude.not $ isReachable ctx) && (Prelude.not $ _displayUnreachableVal ?ide))
        . catMaybes . map (\n -> IntMap.lookup n states) $ xs
 
 -- | Display a layout node as a clickable number that triggers the display
 --   of the corresponding state
-node :: Int -> App a
+node :: Int -> App ()
 node n = do
-  ev <- a [ Just <$> onClick]
-          [ text (Text.pack . show $ n)]
+  ev <- orr [ Left . Just <$> a [onClick] [ text (Text.pack . show $ n) ]
+            , Right <$> liftIO (atomically fetch)
+            ]
   case ev of
-    Nothing  -> node n
-    Just e -> do
-      void . liftIO . atomically $
-        tryPutTMVar (_activeNode ?ide) n >>= \case
-          True  -> pure n
-          False -> swapTMVar (_activeNode ?ide) n
---      log D $ "Active node changed to " <> Text.pack (show n')
+    Left Nothing  -> node n
+    Left (Just _) -> do
+      void . liftIO . atomically $ writeTVar (_activeNode ?ide) n
       node n
+    Right Nothing -> pure () -- node n
+    Right (Just diff) -> do
+      log I $ "Node " <> Text.pack (show n) <>
+              " received an update: " <> Text.pack (show diff)
+--      pure ()
+      trace <- liftIO (readTVarIO (_trace ?ide))
+      void . liftIO . atomically $ writeTVar (_activeNode ?ide) (locKey (_focus trace))
+      htmlTree (_states trace) diff
+  where fetch :: STM (Maybe (Tree Int ()))
+        fetch = do
+          b <- (== n) <$> readTVar (_activeNode ?ide)
+          if b then takeTMVar (_traceChanged ?ide) else retry
