@@ -1,4 +1,4 @@
-packages: . ../unreasonably-polymorphic-isa/
+packages: . ../redfin-lib/
 
 -- source-repository-package
 --     type: git

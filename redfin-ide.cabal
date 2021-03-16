@@ -69,7 +69,7 @@ executable redfin-ide-exe
                , sbv >= 8.9
                , stm
                , text
-               , unreasonably-polymorphic-isa
+               , redfin-lib
                , wai
                , wai-middleware-static
                , websockets
