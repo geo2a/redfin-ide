@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Redfin.IDE.State where
 
 import           Concur.Core
@@ -11,6 +12,7 @@ import qualified Data.SBV                     as SBV (SMTResult (..),
 import           Data.Text                    (Text)
 import qualified Data.Text                    as Text
 import qualified Data.Tree                    as Tree
+import qualified Network.Wai.Handler.Replica  as R
 import           Prelude                      hiding (div, id, span)
 
 import           ISA.Backend.Symbolic.Zipper
@@ -21,6 +23,7 @@ import           ISA.Types.Key
 import           ISA.Types.SBV
 import           ISA.Types.Symbolic           (Sym (..))
 
+import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
 showIR :: Data Sym -> Text
@@ -102,12 +105,14 @@ conjunct = \case
                    ]
 
 -- | Display a context
-displayContext :: Maybe Context -> Widget HTML a
+displayContext :: Maybe Context -> App a
 displayContext x =
   case x of
     Nothing -> text $ "Oops: no such state in the trace"
-    Just ctx@(MkContext vars store pc cs solution) ->
+    Just ctx@(MkContext vars store pc cs solution) -> do
+      liftIO $ R.call ?client () "setTimeout(activeSourceLine, 0)"
       let ir = Map.findWithDefault 0 IR vars
+          ic = Map.findWithDefault 0 IC vars
 
           h  = Text.pack . show $ Map.findWithDefault 0 (F Halted) vars
           c  = Text.pack . show $ Map.findWithDefault 0 (F Condition) vars
@@ -118,8 +123,10 @@ displayContext x =
           r2 = Text.pack . show $ Map.findWithDefault 0 (Reg R2) vars
           r3 = Text.pack . show $ Map.findWithDefault 0 (Reg R3) vars
 
-      in ul [classList [ ("context", True)]]
+      ul [classList [ ("context", True)]]
             [ li [] [keyTag IR, span [] [text $ " : " <> showIR ir]]
+            , li [] [keyTag IC, span [id "active-state-ic"]
+                      [ text $ Text.pack (show ic)]]
             , li [] [
                 h4 [] [text "Flags"],
                 div [classList [("context-data", True)]] . (:[]) $

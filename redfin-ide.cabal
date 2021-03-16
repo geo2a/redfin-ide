@@ -73,4 +73,5 @@ executable redfin-ide-exe
                , wai
                , wai-middleware-static
                , websockets
+               , HTTP
   default-language: Haskell2010

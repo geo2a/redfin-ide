@@ -116,7 +116,33 @@ $header-height: 140px;
     position: sticky;
     top: $header-height + $grid-gap;
     z-index: 1;
-    & .listing { max-height: 250px; overflow-y: auto; }
+    & .listing {
+        padding-inline-start: 0;
+        max-height: 250px; 
+        overflow-y: auto; 
+        scroll-snap-type: y mandatory;
+    }
+    & .listing li {padding: 0; list-style-position: inside;};
+    & .listing .active {
+        background-color: #AFEEEE; 
+        scroll-snap-align: center;
+        list-style-type: '>>=';
+    };
+    /* & .listing li::marker { */
+    /*   width: 0;  */
+    /*   height: 0;  */
+    /*   border-top: 6px solid transparent; */
+    /*   border-bottom: 6px solid transparent;       */
+    /*   border-left: 10px solid black; */
+    /*   position: absolute; */
+    /*   margin-top: 3px; */
+    /* } */
+    & code {
+      margin-left: 5px;
+    };
+    & .listing .active:marker { color: #AFEEEE; };
+
+    & .listing pre {display: inline; margin: 0; paddin-left: 5px;};
 }
 
 .middlepane {
@@ -342,13 +368,18 @@ $unreachable-grey: #7f8fa6;
     & .halted a::after {
         display: none;
     }
+    & .active {
+        background: #AFEEEE;
+        color: #fff;
+        border: $border-width solid #AFEEEE;
+    }
 }
 
 // Highlight nodes on hover
 .tree .node a:hover {
-    background: #e9453f;
+    background: #AFEEEE;
     color: #fff;
-    border: $border-width solid #e9453f;
+    border: $border-width solid #AFEEEE;
 }
 
 .tree .node .unreachable a {

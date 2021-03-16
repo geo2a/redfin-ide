@@ -5,55 +5,75 @@ module Redfin.IDE.Widget.Source
   ( sourceWidget
   ) where
 
-import           Colog                     (HasLog (..), LogAction, Message,
-                                            pattern D, pattern E, pattern I)
+import           Colog                       (HasLog (..), LogAction, Message,
+                                              pattern D, pattern E, pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica            hiding (id)
-import qualified Concur.Replica.DOM.Events as P
-import           Control.Applicative       (Alternative, empty, (<|>))
+import           Concur.Replica
+import qualified Concur.Replica.DOM.Events   as P
+import           Control.Applicative         (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
-import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative  as MultiAlternative
+import qualified Control.MultiAlternative    as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                as A
-import           Data.Either               (rights)
-import           Data.Functor              (void)
-import           Data.Int                  (Int32)
-import qualified Data.Map.Strict           as Map
-import           Data.Text                 (Text)
-import qualified Data.Text                 as Text
-import qualified Data.Text.Lazy.Builder    as Text
-import qualified Data.Text.Read            as Text
-import           Prelude                   hiding (div, log, lookup, span)
-import           Replica.VDOM.Render       as Render
-import           Text.Read                 (readEither)
+import qualified Data.Aeson                  as A
+import           Data.Bifunctor
+import           Data.Either                 (rights)
+import           Data.Functor                (void)
+import           Data.Int                    (Int32)
+import qualified Data.IntMap                 as IntMap
+import qualified Data.Map.Strict             as Map
+import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
+import qualified Data.Text.Lazy.Builder      as Text
+import qualified Data.Text.Read              as Text
+import           Prelude                     hiding (div, id, log, lookup, span)
+import           Replica.VDOM.Render         as Render
+import           Text.Read                   (readEither)
 
+import           ISA.Assembly                (Script, assemble)
+import           ISA.Backend.Symbolic.Zipper hiding (_trace)
 import           ISA.Types
+import           ISA.Types.Context
 import           ISA.Types.Instruction
+import           ISA.Types.Key
+import           ISA.Types.Symbolic          hiding (getValue)
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
-import           ISA.Assembly              (Script, assemble)
 
 -- | Display the assembly source code of the program
-sourceWidget :: FilePath -> App [(CAddress, Instruction (Data Int32))]
-sourceWidget fpath =
+sourceWidget :: FilePath -> App a -- [(CAddress, Instruction (Data Int32))]
+sourceWidget fpath = do
+  log D "Displaying source code"
   div [classList [ ("box", True)
                  , ("sourceWidget", True)]]
     [ h3 [] [text "Source code"]
     , ol [classList [("listing", True)]]
-      (map (li [] . (:[]) . text) src)
-    , div [] [ Nothing <$ button [onClick] [text "Load from file"]
-             , Just . getValue <$> input [value (Text.pack fpath)
-                                         , placeholder "file.redfin"
-                                         , onChange]]
-    ] >>= \case
-    Nothing -> do
-      log I $ "Loading script from file " <> Text.pack fpath
-      pure []
-    Just fpath' -> sourceWidget fpath'
-  where src :: [Text.Text]
-        src = map (Text.pack . show . snd) (_source ?ide)
+      (map lineView src)
+    ]
+  sourceWidget fpath
+--    , Just . Left <$> (liftIO . atomically $ checkActiveIC ic)
+    -- , div [] [ Nothing <$ button [onClick] [text "Load from file"]
+    --          , Just  . getValue <$> input [value (Text.pack fpath)
+    --                                      , placeholder "file.redfin"
+    --                                      , onChange]]]
+--     ] >>= \case
+--     Nothing -> do
+--       sourceWidget fpath
+-- --      pure []
+-- --      sourceWidget fpath
+--     Just fpath' -> do
+--       log I $ "Loading script from file " <> Text.pack fpath'
+--       sourceWidget fpath'
+
+  where src = map (first (+ 1)) $ _source ?ide
+
+        lineView line =
+          li [ id (Text.pack (show . fst $ line))]
+             [pre []
+               [ span [classList [("pointer", True)]] []
+               , code [classList [("haskell", True)]] [text $ Text.pack (show . snd $ line)]]
+             ]

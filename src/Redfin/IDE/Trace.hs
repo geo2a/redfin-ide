@@ -35,7 +35,6 @@ import           Redfin.IDE.Types
 -- | Build an interactive view of a trace
 htmlTrace :: Trace -> App ()
 htmlTrace trace = do
-  log D $ Text.pack . unlines $ draw (_layout trace)
   div [classList [("tree", True)]]
     [ ul [] [htmlTree  (_states trace) (_layout trace)]]
 

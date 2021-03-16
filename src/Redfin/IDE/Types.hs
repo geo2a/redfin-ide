@@ -29,6 +29,8 @@ import           Data.Text                       (Text)
 import           GHC.Generics
 import           GHC.Stack                       (HasCallStack, callStack,
                                                   withFrozenCallStack)
+import qualified Network.Wai.Handler.Replica     as R
+
 
 import           Data.Aeson                      as JSON
 
@@ -119,6 +121,8 @@ data IDEState =
 
 type App a = ( HasCallStack
              , ?logger :: LogAction (Widget HTML) Message
+             -- Browser context, for running JS callbacks
+             , ?client :: R.Context
              , ?ide :: IDEState) => Widget HTML a
 
 emptyStats :: SymExecStats

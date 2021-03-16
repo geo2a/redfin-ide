@@ -62,7 +62,7 @@ import           Redfin.IDE.Widget.Trace
 
 import qualified Debug.Trace                     as Debugger
 
-leftPane :: App [(CAddress, Instruction (Data Int32))]
+leftPane :: App a -- [(CAddress, Instruction (Data Int32))]
 leftPane = do
   section [classList [ ("pane", True)
                    , ("leftpane", True)
@@ -128,8 +128,8 @@ ideWidget = do
   event <- div [classList [("grid-container", True)]]
       [ Proceed <$ traceWidget
       , Proceed <$ stateWidget 0
+      , Proceed <$ leftPane
       , orr [ SaveLoaded <$> topPane
-            , SourceChanged <$> leftPane
             , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
             , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
             ]

@@ -27,9 +27,11 @@ import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
 import qualified Data.Text.Lazy.Builder          as Text
 import qualified Data.Text.Read                  as Text
+import qualified Network.Wai.Handler.Replica     as R
 import           Prelude                         hiding (div, log, lookup, span)
 import           Replica.VDOM.Render             as Render
 import           Text.Read                       (readEither)
+
 
 import           ISA.Backend.Symbolic.Zipper     (_focus, _layout, _states,
                                                   continueEngine, down,
@@ -60,7 +62,7 @@ stateWidget n = do
             [
               h3 [] [ text $ "State " <> Text.pack (show n) <> ": "]
             , Just . Left <$> button [onClick] [text "Continue"]
-            , displayContext (IntMap.lookup n (_states trace))
+            , Nothing <$ displayContext (IntMap.lookup n (_states trace))
             , Just . Right <$> (liftIO . atomically $ checkActiveNode)
             ]
         ]
@@ -73,7 +75,8 @@ stateWidget n = do
         liftIO . atomically $ orElse (putTMVar (_traceChanged ?ide) diff)
                                      (void $ swapTMVar (_traceChanged ?ide) diff)
       stateWidget n
-    Just (Right n') -> stateWidget n'
+    Just (Right n') -> do
+      stateWidget n'
   where checkActiveNode = do
           n' <- readTVar (_activeNode ?ide)
           if n' /= n then pure n' else retry
