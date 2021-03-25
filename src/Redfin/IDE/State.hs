@@ -26,25 +26,25 @@ import           ISA.Types.Symbolic           (Sym (..))
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
-showIR :: Data Sym -> Text
-showIR (MkData v) =
+showIR :: Sym -> Text
+showIR v =
   case toInstruction v of
     Left _  -> "uninitialised"
     Right i -> Text.pack $ show i
 
 -- | Display path condition
-fancyPathConstraint :: (Data Sym) -> Widget HTML a
+fancyPathConstraint :: Sym -> Widget HTML a
 fancyPathConstraint =
   ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
-  reverse . map conjunct . splitToplevelConjs . _unData
+  reverse . map conjunct . splitToplevelConjs
 
 -- | Display constraints on the symbolic variables
-fancyConstraints :: [(Text, (Data Sym))] -> Widget HTML a
+fancyConstraints :: [(Text, Sym)] -> Widget HTML a
 fancyConstraints =
   ul [classList [("constraint" , True)]] .
   map (li [] . (:[])) .
-  reverse . map (conjunct . _unData . snd)
+  reverse . map (conjunct . snd)
 
 -- | Display the solution of the path condition, if available
 fancySolution :: Maybe SMTResult -> Widget HTML a

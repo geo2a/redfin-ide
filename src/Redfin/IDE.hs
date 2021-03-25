@@ -74,7 +74,7 @@ leftPane = do
     ]
 
 data Event = Proceed
-           | SourceChanged [(CAddress, Instruction (Data Int32))]
+           | SourceChanged [(CAddress, Instruction Int32)]
            | SaveLoaded IDEState
            | ExampleChanged Example
            | StepsChanged Steps

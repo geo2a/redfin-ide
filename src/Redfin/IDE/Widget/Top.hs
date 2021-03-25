@@ -1,44 +1,44 @@
 {-# LANGUAGE RankNTypes #-}
 module Redfin.IDE.Widget.Top (topPane) where
 
-import           Colog                          (HasLog (..), LogAction,
-                                                 Message, pattern D, pattern E,
-                                                 pattern I)
+import           Colog                              (HasLog (..), LogAction,
+                                                     Message, pattern D,
+                                                     pattern E, pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                 hiding (id)
-import qualified Concur.Replica.DOM.Events      as P
+import           Concur.Replica                     hiding (id)
+import qualified Concur.Replica.DOM.Events          as P
 import           Concur.Replica.DOM.Props
-import           Control.Applicative            (Alternative, empty, (<|>))
+import           Control.Applicative                (Alternative, empty, (<|>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
-import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.IO.Class             (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative       as MultiAlternative
+import qualified Control.MultiAlternative           as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                     as A
-import           Data.Either                    (rights)
-import           Data.Functor                   (void)
-import qualified Data.Map.Strict                as Map
-import           Data.Text                      (Text)
-import qualified Data.Text                      as Text
-import qualified Data.Text.Lazy.Builder         as Text
-import qualified Data.Text.Read                 as Text
-import           Prelude                        hiding (div, id, log, lookup,
-                                                 span)
-import           Replica.VDOM.Render            as Render
-import           Replica.VDOM.Types             (DOMEvent (getDOMEvent))
-import           Text.Read                      (readEither)
+import qualified Data.Aeson                         as A
+import           Data.Either                        (rights)
+import           Data.Functor                       (void)
+import qualified Data.Map.Strict                    as Map
+import           Data.Text                          (Text)
+import qualified Data.Text                          as Text
+import qualified Data.Text.Lazy.Builder             as Text
+import qualified Data.Text.Read                     as Text
+import           Prelude                            hiding (div, id, log,
+                                                     lookup, span)
+import           Replica.VDOM.Render                as Render
+import           Replica.VDOM.Types                 (DOMEvent (getDOMEvent))
+import           Text.Read                          (readEither)
 
 import           Redfin.IDE.Types
 import           Redfin.IDE.Types.Save
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.Top.Examples
--- import           Redfin.IDE.Widget.Top.Verification
+import           Redfin.IDE.Widget.Top.Verification
 
 import           ISA.Types
-import           ISA.Types.Symbolic             hiding (getValue)
+import           ISA.Types.Symbolic                 hiding (getValue)
 
 data Action = StepsChanged String
             | TimeoutChanged String
@@ -53,7 +53,7 @@ topPane =
         [ saveWidget ("", "") Nothing
         , examplesWidget
         , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
---        , verificationWidget (Nothing, "", Nothing) Nothing
+        , verificationWidget (Nothing, "", Nothing) Nothing
         ]
     ]
 
@@ -71,9 +71,9 @@ saveWidget (save, load) msg = do
                                , Just . getValue <$> input [value (Text.pack save)
                                                            , placeholder "path/to/project.json"
                                                            , onChange]]
-             , Nothing <$ span [classList [("notice", True)]]
-                               [ maybe empty text msg
-                               , liftIO (threadDelay $ (5 * 10^6))]
+             -- , Nothing <$ span [classList [("notice", True)]]
+             --                   [ maybe empty text msg
+             --                   , liftIO (threadDelay $ (5 * 10^6))]
              ]
     ] >>= \case Just (Left Nothing) -> do
                   log D $ "IDE saved into" <> Text.pack save

@@ -111,7 +111,7 @@ data IDEState =
            , _activeInitState       :: TMVar Context
            , _activeInitStateVal    :: Context
 
-           , _source                :: [(CAddress, Instruction (Data Int32))]
+           , _source                :: [(CAddress, Instruction Int32)]
 
            , _solving               :: TMVar ()
 

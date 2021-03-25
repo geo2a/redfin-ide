@@ -101,10 +101,10 @@ $header-height: 140px;
     }
     & .verificationWidget {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         justify-content: flex-start;
         align-content: flex-start;
-        & .input {width: 300px }
+        & .input {width: 500px }
         & .proof { font-size: 10pt;
                  }
     }

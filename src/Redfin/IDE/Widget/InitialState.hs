@@ -48,18 +48,9 @@ import           ISA.Types.Symbolic.Parser
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
-parseValue :: Text -> Key -> Either Text (Key, Data Sym)
+parseValue :: Text -> Key -> Either Text (Key, Sym)
 parseValue txt k =
-  (k,) . MkData <$> parseSym "" txt
-  -- Reg r  -> (Reg r,) . MkData <$>
-  -- Addr a ->  (Addr a,) . MkData <$> parseSym "" txt
-  --   case readMaybe (Text.unpack txt) of
-  --     Just v  -> Just . SConst . CInt32 $ v
-  --     Nothing -> Just $ SAny txt
-  -- F f -> (F f,) . SConst . CBool <$> readMaybe (Text.unpack txt)
-  -- IC -> error "parseSym: not implemented for key IC"
-  -- IR -> error "parseSym: not implemented for key IR"
-  -- Prog _ -> error "parseSym: not implemented for key Prog"
+  (k,) <$> parseSym "" txt
 
 initStateWidget :: Context -> App a
 initStateWidget ctx = do
@@ -151,7 +142,7 @@ addBindingWidget buffer = do
 
 --------------------------------------------------------------------------------
 
-constrWidget :: TVar (Map.Map Text (Data Sym)) -> App (Map.Map Text (Data Sym))
+constrWidget :: TVar (Map.Map Text Sym) -> App (Map.Map Text Sym)
 constrWidget buffer = do
   cs <- liftIO $ readTVarIO buffer
   let inps = (map (constrInp buffer) (Map.assocs cs))
@@ -164,7 +155,7 @@ constrWidget buffer = do
               ]]
   liftIO . atomically $ readTVar buffer
 
-constrInp :: TVar (Map.Map Text (Data Sym)) -> (Text, Data Sym) -> Widget HTML ()
+constrInp :: TVar (Map.Map Text Sym) -> (Text, Sym) -> Widget HTML ()
 constrInp buffer (name, expr) = do
   let exprTxt = Text.pack $ show expr
   new <- orr
@@ -181,13 +172,13 @@ constrInp buffer (name, expr) = do
       Just (Left err) -> text err
       Just (Right sym) -> do
         liftIO . atomically $
-          modifyTVar' buffer (\ctx -> Map.insert name (MkData sym) ctx)
+          modifyTVar' buffer (\ctx -> Map.insert name sym ctx)
       Nothing -> do
         liftIO . atomically $ do
           modifyTVar' buffer (\ctx -> Map.delete name ctx)
 
 
-addConstraintWidget :: TVar (Map.Map Text (Data Sym)) -> Widget HTML ()
+addConstraintWidget :: TVar (Map.Map Text Sym) -> Widget HTML ()
 addConstraintWidget  buffer = do
   name <- orr [ span [classList [("initKey", True)]]
                 [ input [ targetValue . target <$> onChange
@@ -215,4 +206,4 @@ addConstraintWidget  buffer = do
   case parseSym (Text.unpack name) expr of
     Left err -> orr [text err, addConstraintWidget buffer]
     Right sym ->
-      liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert name (MkData sym) ctx)
+      liftIO . atomically $ modifyTVar' buffer (\ctx -> Map.insert name sym ctx)
