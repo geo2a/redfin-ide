@@ -30,6 +30,7 @@ import qualified Data.Aeson                      as A
 import           Data.Either                     (rights)
 import           Data.Functor                    (void)
 import           Data.Int                        (Int32)
+import           Data.IntSet                     (IntSet)
 import qualified Data.Map.Strict                 as Map
 import           Data.Text                       (Text)
 import qualified Data.Text                       as Text
@@ -82,6 +83,7 @@ data Event = Proceed
            | InitStateChanged (Context Sym)
            | SolveButtonPressed
            | TraceDisplayToggled
+           | ContraChanged IntSet
 
 elimEvent :: Event -> App IDEState
 elimEvent = \case
@@ -121,7 +123,11 @@ elimEvent = \case
     log D $ "Trace display unreachable checkbox toggled"
     let display' = not (_displayUnreachableVal ?ide)
     pure $ ?ide {_displayUnreachableVal = display'}
-  where
+  ContraChanged contra -> do
+    log D $ "Counterexample changed"
+    -- liftIO . atomically $ do
+    --   writeTVar (_trace ?ide) =<< readTVar (_trace ?ide)
+    pure $ ?ide {_contraStatesVal = contra}
 
 ideWidget :: App a
 ideWidget = do
@@ -137,6 +143,7 @@ ideWidget = do
       , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
       , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solving ?ide)
       , TraceDisplayToggled <$ (liftIO . atomically . takeTMVar $ _displayUnreachable ?ide)
+      , ContraChanged <$> (liftIO . atomically . takeTMVar $ _contraStates ?ide)
       ]
   ide' <- elimEvent event
   let ?ide = ide' in

@@ -22,17 +22,16 @@ import           Concur.Replica                  hiding (id)
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class          (MonadIO)
 import           Control.Monad.Reader            (MonadReader, ReaderT (..))
+import           Data.Aeson                      as JSON
 import           Data.Bifunctor                  (second)
 import           Data.Int                        (Int32)
+import           Data.IntSet                     (IntSet)
 import qualified Data.Map.Strict                 as Map
 import           Data.Text                       (Text)
 import           GHC.Generics
 import           GHC.Stack                       (HasCallStack, callStack,
                                                   withFrozenCallStack)
 import qualified Network.Wai.Handler.Replica     as R
-
-
-import           Data.Aeson                      as JSON
 
 import           ISA.Assembly
 import           ISA.Backend.Symbolic.Zipper     hiding (_trace)
@@ -44,6 +43,8 @@ import           ISA.Types.Instruction           hiding (Add)
 import qualified ISA.Types.Instruction.Encode    as ISA
 import           ISA.Types.Key
 import           ISA.Types.Symbolic
+import           ISA.Types.Symbolic.ACTL
+import           ISA.Types.Symbolic.ACTL.Model
 import           ISA.Types.Symbolic.Address
 import           ISA.Types.Tree
 import           ISA.Types.ZeroOneTwo
@@ -90,6 +91,18 @@ type NodeId = Int
 _trace :: IDEState -> TVar Trace
 _trace = Engine._trace . _engine
 
+data VerifierState =
+  VerifierState { _verifierError   :: Maybe Text
+                , _verifierPropTxt :: Text
+                , _verifierProp    :: Maybe ACTL
+                , _verifierProof   :: Maybe Proof
+                , _verifierContra  :: IntSet
+                }
+
+emptyVerifierState :: VerifierState
+emptyVerifierState =
+  VerifierState Nothing "" Nothing Nothing mempty
+
 data IDEState =
   IDEState { _engine                :: EngineState
            , _traceChanged          :: TMVar (Maybe (Tree Int ()))
@@ -114,6 +127,10 @@ data IDEState =
            , _source                :: [(CAddress, Instruction Int32)]
 
            , _solving               :: TMVar ()
+           , _propertyHistory       :: TVar [ACTL]
+           , _contraStates          :: TMVar IntSet
+           , _contraStatesVal       :: IntSet
+           , _verifier              :: TVar VerifierState
 
            , _savePrefix            :: FilePath
 
@@ -153,6 +170,9 @@ emptyIDE = do
   let source = []
 
   solving <- newEmptyTMVarIO
+  propertyHistory <- newTVarIO []
+  contraStates <- newTMVarIO mempty
+  verifierState <- newTVarIO emptyVerifierState
 
   pure $ IDEState
     engine
@@ -179,6 +199,10 @@ emptyIDE = do
     source
 
     solving
+    propertyHistory
+    contraStates
+    mempty
+    verifierState
 
     "/home/geo2a/Desktop/redfin-ide/"
 

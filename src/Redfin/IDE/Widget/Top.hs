@@ -53,7 +53,7 @@ topPane =
         [ saveWidget ("", "") Nothing
         , examplesWidget
         , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
-        , verificationWidget (Nothing, "", Nothing) Nothing
+        , verificationWidget
         ]
     ]
 

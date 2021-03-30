@@ -102,7 +102,6 @@ index =
 
 main :: IO ()
 main = do
-  putStrLn =<< readFile "js/custom.js"
   CSS.compileFile "styles/source.scss" CSS.defaultSassOptions >>=
     \case Left err  -> print err
           Right css -> writeFile "styles/custom.css" (CSS.resultString css)

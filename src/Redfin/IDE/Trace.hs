@@ -15,6 +15,8 @@ import           Control.Concurrent.STM
 import           Control.Monad.State
 import           Data.IntMap                 (IntMap)
 import qualified Data.IntMap                 as IntMap
+import           Data.IntSet                 (IntSet)
+import qualified Data.IntSet                 as IntSet
 import           Data.Maybe
 import           Data.Text                   (Text)
 import qualified Data.Text                   as Text
@@ -34,39 +36,41 @@ import           Redfin.IDE.State
 import           Redfin.IDE.Types
 
 -- | Build an interactive view of a trace
-htmlTrace :: Trace -> App ()
-htmlTrace trace = do
+htmlTrace :: Trace -> IntSet -> App ()
+htmlTrace trace contra = do
   div [classList [("tree", True)]]
-    [ ul [] [htmlTree  (_states trace) (_layout trace)]]
+    [ ul [] [htmlTree  (_states trace) contra (_layout trace)]]
 
 -- | Traverse the layout tree and create interactive nodes
-htmlTree :: IntMap (Context Sym) -> Tree Int () -> App ()
-htmlTree states = \case
-  Leaf n _               -> spawn Zero states n
-  Trunk n child          -> spawn (One child) states n
-  Branch n lchild rchild -> spawn (Two lchild rchild) states n
+htmlTree :: IntMap (Context Sym) -> IntSet -> Tree Int () -> App ()
+htmlTree states contra = \case
+  Leaf n _               -> spawn Zero states contra n
+  Trunk n child          -> spawn (One child) states contra n
+  Branch n lchild rchild -> spawn (Two lchild rchild) states contra n
 
-spawn :: ZeroOneTwo (Tree Int ()) -> IntMap (Context Sym) -> Int -> App ()
-spawn children states n =
+spawn :: ZeroOneTwo (Tree Int ()) -> IntMap (Context Sym) -> IntSet -> Int -> App ()
+spawn children states contra n = do
   case IntMap.lookup n states  of
     Nothing -> li [classList cs] []
     Just ctx ->
       case children of
         Zero      -> li [classList $ ("leaf", True):cs] [node n]
-        One child -> li [classList cs] [node n, ul [] [htmlTree states child]]
+        One child -> li [classList cs] [node n, ul [] [htmlTree states contra child]]
         Two lchild rchild ->
-          li [classList cs] [node n, ul [] [ htmlTree states lchild
-                                           , htmlTree states rchild ]]
+          li [classList cs] [node n, ul [] [ htmlTree states contra lchild
+                                             , htmlTree states contra rchild ]]
   where
-     cs = [ ("node", True)
-          , ("reachable", maybe False (\x->x) (isReachable <$> IntMap.lookup n states))
-          , ("unreachable", maybe False (\x->x) (Prelude.not . isReachable <$> IntMap.lookup n states))
-          , ("hidden", hidden [n] states)
-          , ("has-hidden-children", False)
-          , ("halted", maybe False toBool (getBinding (F Halted) =<< (IntMap.lookup n states)))
-             -- any (\(Tree.Node (Node i ctx) _) ->
-             --        (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
-          ]
+     cs  =
+       [ ("node", True)
+       , ("reachable", maybe False (\x->x) (isReachable <$> IntMap.lookup n states))
+       , ("unreachable", maybe False (\x->x) (Prelude.not . isReachable <$> IntMap.lookup n states))
+       , ("hidden", hidden [n] states)
+       , ("has-hidden-children", False)
+       , ("halted", maybe False toBool (getBinding (F Halted) =<< (IntMap.lookup n states)))
+       , ("contra", IntSet.member n contra)
+          -- any (\(Tree.Node (Node i ctx) _) ->
+          --        (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
+       ]
      hidden xs states =
        any (\ctx -> (Prelude.not $ isReachable ctx) && (Prelude.not $ _displayUnreachableVal ?ide))
        . catMaybes . map (\n -> IntMap.lookup n states) $ xs
@@ -90,7 +94,7 @@ node n = do
 --      pure ()
       trace <- liftIO (readTVarIO (_trace ?ide))
       void . liftIO . atomically $ writeTVar (_activeNode ?ide) (locKey (_focus trace))
-      htmlTree (_states trace) diff
+      htmlTree (_states trace) (_contraStatesVal ?ide) diff
   where fetch :: STM (Maybe (Tree Int ()))
         fetch = do
           b <- (== n) <$> readTVar (_activeNode ?ide)

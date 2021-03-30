@@ -373,6 +373,9 @@ $unreachable-grey: #7f8fa6;
         color: #fff;
         border: $border-width solid #AFEEEE;
     }
+    & .node .contra a {
+        background: red;
+    }
 }
 
 // Highlight nodes on hover

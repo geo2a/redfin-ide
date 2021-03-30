@@ -45,9 +45,10 @@ traceWidget = widget
     widget :: Widget HTML a
     widget = do
       trace <- liftIO $ readTVarIO (_trace ?ide)
+      contraStates <- _verifierContra <$> (liftIO $ readTVarIO (_verifier ?ide))
       div [classList [ ("pane", True)
                      , ("middlepane", True)
                      ]
           ]
-          [htmlTrace trace]
+          [htmlTrace trace contraStates]
       widget

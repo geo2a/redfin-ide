@@ -20,6 +20,8 @@ import qualified Data.Aeson                    as A
 import           Data.Bifunctor
 import           Data.Either                   (rights)
 import           Data.Functor                  (void)
+import           Data.IntSet                   (IntSet)
+import qualified Data.IntSet                   as IntSet
 import qualified Data.Map.Strict               as Map
 import qualified Data.Set                      as Set
 import           Data.Text                     (Text)
@@ -53,8 +55,8 @@ box xs =
   div [classList [("box", True), ("verificationWidget", True)]]
       ((h4 [] [text "Verifier"]) : xs)
 
-control :: (Maybe Text, Text, Maybe Proof) -> Widget HTML Action
-control (err, propTxt, prfTxt) = div []
+control :: VerifierState -> Widget HTML Action
+control (VerifierState err propTxt _ prfTxt _) = div []
   [ PropertyChanged . targetValue . target <$>
       div [] [ label [] [text "Property: "]
              , input [onChange, placeholder propTxt, value propTxt]
@@ -63,56 +65,94 @@ control (err, propTxt, prfTxt) = div []
   ]
 
 errorNotice :: Maybe Text -> Widget HTML ()
-errorNotice err = span [classList [("notice", True)]]
-              [ maybe empty text err
---              , liftIO (threadDelay $ 5 * 10^6)
-              ]
+errorNotice err =
+  span [classList [("notice", True)]]
+       [maybe empty text err]
 
 getTheorem :: Proof -> ACTL
 getTheorem = \case Proved thm        -> thm
                    Falsifiable thm _ -> thm
 
+displayProof :: Proof -> Widget HTML a
 displayProof = \case
-  Proved _ -> [h5 [] [text "Q.E.D."]]
+  Proved _ -> h5 [] [text "Q.E.D."]
   Falsifiable _ contra ->
-    -- case r of
-    --   Unsatisfiable -> empty
-    --   Satisfiable model ->
-    [ h5 [] [text "Falsifiable!"]
-    , text (Text.pack $ show contra)
-    ]
+    div [] $
+      [ h5 [] [text "Falsifiable!"]
+      , text (Text.pack $ "Violation at states: " <> show (map fst contra))
+      ]
 
 proof :: Maybe Proof -> Widget HTML a
 proof = \case
   Nothing -> empty
   Just prf ->
     div [classList [("proof", True)]]
-        [ div [] (displayProof prf)
+        [ displayProof prf
         ]
 
-verificationWidget :: (Maybe Text, Text, Maybe Proof) -> Maybe ACTL -> App a
-verificationWidget args@(err, propTxt, prf) thm = do
+verificationWidget :: App a
+verificationWidget = do
+  args@(VerifierState err propTxt thm prf contra) <- liftIO $ readTVarIO (_verifier ?ide)
   trace <- liftIO $ readTVarIO (_trace ?ide)
   e <- box [ Just <$> control args
            , Nothing <$ errorNotice err
            , proof prf
            ]
   case e of
-    Nothing -> verificationWidget (err, propTxt, prf) thm
+    Nothing -> verificationWidget
     Just (PropertyChanged newPropTxt) -> do
-      log D $ "New property: " <> propTxt
+      log D $ "New property: " <> newPropTxt
       case (parseTheorem "" newPropTxt) of
-        Left  err     -> verificationWidget (Just err, newPropTxt, Nothing) thm
-        Right newProp -> verificationWidget (Nothing, newPropTxt, Nothing) (Just newProp)
+        Left  err     -> do
+          liftIO . atomically $
+            writeTVar (_verifier ?ide) (args { _verifierError = Just err
+                                             , _verifierPropTxt = newPropTxt
+                                             , _verifierProp = thm
+                                             , _verifierProof = Nothing })
+          verificationWidget
+        Right newThm -> do
+          liftIO . atomically $
+            writeTVar (_verifier ?ide) (args { _verifierError = Nothing
+                                             , _verifierPropTxt = newPropTxt
+                                             , _verifierProp = Just newThm
+                                             , _verifierProof = Nothing })
+          verificationWidget
     Just ProvePressed -> do
       tr <- liftIO $ readTVarIO (_trace ?ide)
       case thm of
         Nothing -> do
           log D "undefined theorem"
-          verificationWidget (Nothing, propTxt, Nothing) thm
+          liftIO . atomically $
+            writeTVar (_verifier ?ide) (args { _verifierError = Nothing
+                                             , _verifierPropTxt = propTxt
+                                             , _verifierProp = Nothing
+                                             , _verifierProof = Nothing })
+          verificationWidget
         Just t -> do
           prf <- box [ p [] [ text "Proving..."
                             , liftIO $ prove trace t
                             ]]
-          log D $ "New proof: " <> (Text.pack $ show prf)
-          verificationWidget (Nothing, propTxt, Just prf) thm
+          liftIO . atomically $ do
+            writeTVar (_verifier ?ide) (args { _verifierError = Nothing
+                                             , _verifierPropTxt = propTxt
+                                             , _verifierProp = Just t
+                                             , _verifierProof = Just prf
+                                             , _verifierContra = getContra prf})
+            processProof (_contraStates ?ide) prf
+          verificationWidget
+
+getContra :: Proof -> IntSet
+getContra = \case
+  Proved _             -> mempty
+  Falsifiable _ contra -> IntSet.fromList $ map fst contra
+
+processProof :: TMVar IntSet -> Proof -> STM ()
+processProof contraStates = \case
+  Proved prop -> do
+    -- log I $ "Property " <> Text.pack (show prop) <> " proved"
+      putTMVar contraStates mempty
+  Falsifiable prop contra -> do
+    -- log I $ "Property " <> Text.pack (show prop) <> " falsifiable! " <>
+    --         "Counterexample updated with: " <> Text.pack (show $ map fst contra)
+
+      putTMVar contraStates (IntSet.fromList $ map fst contra)
