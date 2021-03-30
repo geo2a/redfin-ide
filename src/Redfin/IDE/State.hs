@@ -17,7 +17,7 @@ import           Prelude                      hiding (div, id, span)
 
 import           ISA.Backend.Symbolic.Zipper
 import           ISA.Types
-import           ISA.Types.Context            hiding (Context)
+import           ISA.Types.Context
 import           ISA.Types.Instruction.Decode (toInstruction)
 import           ISA.Types.Key
 import           ISA.Types.SBV
@@ -105,7 +105,7 @@ conjunct = \case
                    ]
 
 -- | Display a context
-displayContext :: Maybe Context -> App a
+displayContext :: Maybe (Context Sym) -> App a
 displayContext x =
   case x of
     Nothing -> text $ "Oops: no such state in the trace"

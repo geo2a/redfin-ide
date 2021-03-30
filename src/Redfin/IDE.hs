@@ -44,7 +44,7 @@ import qualified ISA.Backend.Symbolic.Zipper.Run as ISA
 import qualified ISA.Example.Add                 as ExampleAdd
 import qualified ISA.Example.Sum                 as ExampleSum
 import           ISA.Types
-import           ISA.Types.Context               hiding (Context)
+import           ISA.Types.Context
 import           ISA.Types.Instruction
 import           ISA.Types.Instruction.Decode
 import           ISA.Types.Symbolic
@@ -79,7 +79,7 @@ data Event = Proceed
            | ExampleChanged Example
            | StepsChanged Steps
            | TimeoutChanged Int
-           | InitStateChanged Context
+           | InitStateChanged (Context Sym)
            | SolveButtonPressed
            | TraceDisplayToggled
 

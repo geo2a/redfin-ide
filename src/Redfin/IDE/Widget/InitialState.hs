@@ -39,7 +39,7 @@ import           Text.Read                   (readEither, readMaybe)
 
 import           ISA.Backend.Symbolic.Zipper
 import           ISA.Types
-import           ISA.Types.Context           hiding (Context)
+import           ISA.Types.Context
 import           ISA.Types.Key
 import           ISA.Types.Prop
 import           ISA.Types.Symbolic
@@ -52,7 +52,7 @@ parseValue :: Text -> Key -> Either Text (Key, Sym)
 parseValue txt k =
   (k,) <$> parseSym "" txt
 
-initStateWidget :: Context -> App a
+initStateWidget :: Context Sym -> App a
 initStateWidget ctx = do
   let relevant = fmap (Text.pack . show) $ Map.filterWithKey isRelevant (_bindings ctx)
       cs = Map.fromList (_constraints ctx)

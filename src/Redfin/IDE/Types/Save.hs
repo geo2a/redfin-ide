@@ -32,13 +32,12 @@ import           Prelude                      hiding (log)
 import           ISA.Assembly
 import           ISA.Backend.Symbolic.Zipper  hiding (_trace)
 import           ISA.Types
-import           ISA.Types.Context            hiding (Context)
+import           ISA.Types.Context
 import           ISA.Types.Instruction
 import qualified ISA.Types.Instruction.Decode as ISA
 import qualified ISA.Types.Instruction.Encode as ISA
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Address
-import           ISA.Types.Symbolic.SMT
 import           ISA.Types.Tree
 
 import           Redfin.IDE.Types
@@ -51,7 +50,7 @@ data Save =
          , _saveTimeout            :: Int
          , _saveActiveNode         :: NodeId
          , _saveExample            :: Example
-         , _saveInitState          :: Context
+         , _saveInitState          :: Context Sym
          , _saveSource             :: [(CAddress, InstructionCode)]
          } deriving (Generic, ToJSON, FromJSON)
 

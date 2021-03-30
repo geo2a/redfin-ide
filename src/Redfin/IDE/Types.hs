@@ -39,13 +39,12 @@ import           ISA.Backend.Symbolic.Zipper     hiding (_trace)
 import qualified ISA.Backend.Symbolic.Zipper     as Engine
 import           ISA.Backend.Symbolic.Zipper.Run
 import           ISA.Types
-import           ISA.Types.Context               hiding (Context)
+import           ISA.Types.Context
 import           ISA.Types.Instruction           hiding (Add)
 import qualified ISA.Types.Instruction.Encode    as ISA
 import           ISA.Types.Key
 import           ISA.Types.Symbolic
 import           ISA.Types.Symbolic.Address
-import           ISA.Types.Symbolic.SMT
 import           ISA.Types.Tree
 import           ISA.Types.ZeroOneTwo
 
@@ -61,6 +60,7 @@ data WithKey a = MkWithKey Key a
 
 instance Eq (WithKey a) where
   (MkWithKey k1 _) == (MkWithKey k2 _) = k1 == k2
+
 
 instance Ord (WithKey a) where
   (MkWithKey k1 _) <= (MkWithKey k2 _) = k1 <= k2
@@ -108,8 +108,8 @@ data IDEState =
            , _activeExample         :: TMVar Example
            , _activeExampleVal      :: Example
 
-           , _activeInitState       :: TMVar Context
-           , _activeInitStateVal    :: Context
+           , _activeInitState       :: TMVar (Context Sym)
+           , _activeInitStateVal    :: (Context Sym)
 
            , _source                :: [(CAddress, Instruction Int32)]
 
@@ -125,8 +125,8 @@ type App a = ( HasCallStack
              , ?client :: R.Context
              , ?ide :: IDEState) => Widget HTML a
 
-emptyStats :: SymExecStats
-emptyStats = MkSymExecStats 0
+-- emptyStats :: SymExecStats
+-- emptyStats = MkSymExecStats 0
 
 emptyIDE :: IO IDEState
 emptyIDE = do

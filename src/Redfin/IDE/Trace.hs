@@ -22,9 +22,10 @@ import           Prelude                     hiding (div, id, log, span)
 
 import           ISA.Backend.Symbolic.Zipper hiding (_trace)
 import           ISA.Types
-import           ISA.Types.Context           hiding (Context)
+import           ISA.Types.Context
 import           ISA.Types.Key
 import           ISA.Types.Prop
+import           ISA.Types.Symbolic
 import           ISA.Types.Tree              (Tree (..), draw, locKey)
 
 import           ISA.Types.ZeroOneTwo
@@ -39,13 +40,13 @@ htmlTrace trace = do
     [ ul [] [htmlTree  (_states trace) (_layout trace)]]
 
 -- | Traverse the layout tree and create interactive nodes
-htmlTree :: IntMap Context -> Tree Int () -> App ()
+htmlTree :: IntMap (Context Sym) -> Tree Int () -> App ()
 htmlTree states = \case
   Leaf n _               -> spawn Zero states n
   Trunk n child          -> spawn (One child) states n
   Branch n lchild rchild -> spawn (Two lchild rchild) states n
 
-spawn :: ZeroOneTwo (Tree Int ()) -> IntMap Context -> Int -> App ()
+spawn :: ZeroOneTwo (Tree Int ()) -> IntMap (Context Sym) -> Int -> App ()
 spawn children states n =
   case IntMap.lookup n states  of
     Nothing -> li [classList cs] []

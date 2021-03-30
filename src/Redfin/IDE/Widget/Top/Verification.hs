@@ -1,48 +1,49 @@
 {-# LANGUAGE RankNTypes #-}
 module Redfin.IDE.Widget.Top.Verification where
 
-import           Colog                       (HasLog (..), LogAction, Message,
-                                              pattern D, pattern E, pattern I)
+import           Colog                         (HasLog (..), LogAction, Message,
+                                                pattern D, pattern E, pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica              hiding (id)
-import qualified Concur.Replica.DOM.Events   as P
+import           Concur.Replica                hiding (id)
+import qualified Concur.Replica.DOM.Events     as P
 import           Concur.Replica.DOM.Props
-import           Control.Applicative         (Alternative, empty, (<|>))
+import           Control.Applicative           (Alternative, empty, (<|>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TSem
-import           Control.Monad.IO.Class      (liftIO)
+import           Control.Monad.IO.Class        (liftIO)
 import           Control.Monad.Reader
-import qualified Control.MultiAlternative    as MultiAlternative
+import qualified Control.MultiAlternative      as MultiAlternative
 import           Control.ShiftMap
-import qualified Data.Aeson                  as A
+import qualified Data.Aeson                    as A
 import           Data.Bifunctor
-import           Data.Either                 (rights)
-import           Data.Functor                (void)
-import qualified Data.Map.Strict             as Map
-import qualified Data.Set                    as Set
-import           Data.Text                   (Text)
-import qualified Data.Text                   as Text
-import qualified Data.Text.Lazy.Builder      as Text
-import qualified Data.Text.Read              as Text
-import           Prelude                     hiding (div, id, log, lookup, span)
-import           Replica.VDOM.Render         as Render
-import           Replica.VDOM.Types          (DOMEvent (getDOMEvent))
-import           Text.Read                   (readEither)
+import           Data.Either                   (rights)
+import           Data.Functor                  (void)
+import qualified Data.Map.Strict               as Map
+import qualified Data.Set                      as Set
+import           Data.Text                     (Text)
+import qualified Data.Text                     as Text
+import qualified Data.Text.Lazy.Builder        as Text
+import qualified Data.Text.Read                as Text
+import           Prelude                       hiding (div, id, log, lookup,
+                                                span)
+import           Replica.VDOM.Render           as Render
+import           Replica.VDOM.Types            (DOMEvent (getDOMEvent))
+import           Text.Read                     (readEither)
 
-import           Redfin.IDE.State            (fancyConstraints, fancySolution)
+import           Redfin.IDE.State              (fancyConstraints, fancySolution)
 import           Redfin.IDE.Types
 import           Redfin.IDE.Types.Save
 import           Redfin.IDE.Widget
 
-import           ISA.Backend.Symbolic.Zipper hiding (_trace)
-import           ISA.Types.Context           hiding (Context)
+import           ISA.Backend.Symbolic.Zipper   hiding (_trace)
+import           ISA.Types.Context             hiding (Context)
 import           ISA.Types.SBV
 import           ISA.Types.Symbolic
+import           ISA.Types.Symbolic.ACTL
+import           ISA.Types.Symbolic.ACTL.Model
 import           ISA.Types.Symbolic.Parser
-import           ISA.Types.Symbolic.Property
-import           ISA.Types.Symbolic.SMT
 
 data Action = PropertyChanged Text
             | ProvePressed
@@ -67,7 +68,7 @@ errorNotice err = span [classList [("notice", True)]]
 --              , liftIO (threadDelay $ 5 * 10^6)
               ]
 
-getTheorem :: Proof -> Theorem
+getTheorem :: Proof -> ACTL
 getTheorem = \case Proved thm        -> thm
                    Falsifiable thm _ -> thm
 
@@ -89,7 +90,7 @@ proof = \case
         [ div [] (displayProof prf)
         ]
 
-verificationWidget :: (Maybe Text, Text, Maybe Proof) -> Maybe Theorem -> App a
+verificationWidget :: (Maybe Text, Text, Maybe Proof) -> Maybe ACTL -> App a
 verificationWidget args@(err, propTxt, prf) thm = do
   trace <- liftIO $ readTVarIO (_trace ?ide)
   e <- box [ Just <$> control args
@@ -111,7 +112,7 @@ verificationWidget args@(err, propTxt, prf) thm = do
           verificationWidget (Nothing, propTxt, Nothing) thm
         Just t -> do
           prf <- box [ p [] [ text "Proving..."
-                            , liftIO $ prove t trace
+                            , liftIO $ prove trace t
                             ]]
           log D $ "New proof: " <> (Text.pack $ show prf)
           verificationWidget (Nothing, propTxt, Just prf) thm
