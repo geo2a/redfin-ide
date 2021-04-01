@@ -1,15 +1,5 @@
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE ImplicitParams        #-}
-{-# LANGUAGE IncoherentInstances   #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TupleSections         #-}
-
 module Redfin.IDE
   ( ideWidget
---  , mkIDE
   ) where
 
 import           Colog                           (HasLog (..), LogAction,
@@ -17,7 +7,7 @@ import           Colog                           (HasLog (..), LogAction,
                                                   pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                  hiding (id)
+import           Concur.Replica                  hiding (defaultValue, id)
 import qualified Concur.Replica.DOM.Events       as P
 import           Control.Applicative             (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
@@ -63,71 +53,52 @@ import           Redfin.IDE.Widget.Trace
 
 import qualified Debug.Trace                     as Debugger
 
-leftPane :: App a -- [(CAddress, Instruction (Data Int32))]
+leftPane :: App a
 leftPane = do
   section [classList [ ("pane", True)
-                   , ("leftpane", True)
-                   ]]
+                     , ("leftpane", True)
+                     ]]
     [ div [classList [ ("leftpane-contents", True)]]
           [ sourceWidget ""
-          , initStateWidget (_activeInitStateVal ?ide)
+          , initStateWidget
           ]
     ]
 
-data Event = Proceed
-           | SourceChanged [(CAddress, Instruction Int32)]
-           | SaveLoaded IDEState
-           | ExampleChanged Example
-           | StepsChanged Steps
-           | TimeoutChanged Int
-           | InitStateChanged (Context Sym)
-           | SolveButtonPressed
-           | TraceDisplayToggled
-           | ContraChanged IntSet
-
-elimEvent :: Event -> App IDEState
+elimEvent :: IDEEvent -> App IDEState
 elimEvent = \case
   Proceed -> pure ?ide
   SourceChanged src -> pure $ ?ide { _source = src }
   SaveLoaded ide -> pure ide
   ExampleChanged ex -> do
     log D $ "Example changed to " <> Text.pack (show ex)
-    ide' <- liftIO $ swapExample ?ide ex
+    ide' <- swapExample ex
     liftIO . atomically $ do
       writeTVar (_trace ide') emptyTrace
       writeTVar (_activeNode ide') (-1)
     pure ide'
   StepsChanged steps -> do
     log D $ "Steps changed to " <> Text.pack (show steps)
-    env <- liftIO $ evalEngine (ISA.runModelImpl steps) (_activeInitStateVal ?ide)
-    log D $ "Trace regenerated with " <> Text.pack (show steps) <> " steps"
-    -- log I $ "Stats: " <> (Text.pack . show $ stats)
-    pure (?ide {_stepsVal = steps, _engine = env})
-  TimeoutChanged timeout -> do
-    log D $ "Timeout changed to " <> Text.pack (show timeout)
-    pure (?ide {_timeoutVal = timeout})
+    liftIO . atomically $
+      modifyTVar (_executor ?ide) (\e -> e {_executorSteps = steps})
+    pure ?ide
+  RunPressed -> do
+    log D $ "Run pressed"
+    executor <- liftIO (readTVarIO (_executor ?ide))
+    env <- liftIO $
+      evalEngine (ISA.runModelImpl (_executorSteps executor)) (_executorInitState executor)
+    log D $ "Trace regenerated with " <> Text.pack (show (_executorSteps executor)) <> " steps"
+    pure (?ide {_engine = env})
   InitStateChanged ctx -> do
     log D $ "Init state changed"
-    let ide' = ?ide {_activeInitStateVal = ctx}
     liftIO . atomically $ do
-      writeTVar (_trace ide') emptyTrace
-    pure ide'
-  SolveButtonPressed -> do
-    log D $ "Solve button pressed"
-    trace <- liftIO . atomically $ readTVar (_trace ?ide)
-    liftIO . atomically $ do
-      writeTVar (_trace ?ide) trace
-    log D $ "Trace solved"
+      writeTVar (_trace ?ide) emptyTrace
+      modifyTVar (_executor ?ide) (\e -> e {_executorInitState = ctx})
     pure ?ide
-  TraceDisplayToggled -> do
-    log D $ "Trace display unreachable checkbox toggled"
-    let display' = not (_displayUnreachableVal ?ide)
-    pure $ ?ide {_displayUnreachableVal = display'}
   ContraChanged contra -> do
     log D $ "Counterexample changed"
-    -- liftIO . atomically $ do
-    --   writeTVar (_trace ?ide) =<< readTVar (_trace ?ide)
-    pure $ ?ide {_contraStatesVal = contra}
+    liftIO . atomically $
+      modifyTVar (_verifier ?ide) (\v -> v {_verifierContra = contra})
+    pure ?ide
 
 ideWidget :: App a
 ideWidget = do
@@ -135,15 +106,8 @@ ideWidget = do
       [ Proceed <$ traceWidget
       , Proceed <$ stateWidget 0
       , Proceed <$ leftPane
-      , orr [ SaveLoaded <$> topPane
-            , ExampleChanged <$> (liftIO . atomically . takeTMVar $ _activeExample ?ide)
-            , StepsChanged <$> (liftIO . atomically . takeTMVar $ _steps ?ide)
-            ]
-      , TimeoutChanged <$> (liftIO . atomically . takeTMVar $ _timeout ?ide)
-      , InitStateChanged <$> (liftIO . atomically . takeTMVar $ _activeInitState ?ide)
-      , SolveButtonPressed <$ (liftIO . atomically . takeTMVar $ _solving ?ide)
-      , TraceDisplayToggled <$ (liftIO . atomically . takeTMVar $ _displayUnreachable ?ide)
-      , ContraChanged <$> (liftIO . atomically . takeTMVar $ _contraStates ?ide)
+      , Proceed <$ topPane
+      , liftIO . atomically . readTQueue $ _events ?ide
       ]
   ide' <- elimEvent event
   let ?ide = ide' in

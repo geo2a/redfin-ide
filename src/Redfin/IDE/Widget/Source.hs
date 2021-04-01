@@ -1,6 +1,3 @@
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes      #-}
-
 module Redfin.IDE.Widget.Source
   ( sourceWidget
   ) where
@@ -43,31 +40,17 @@ import           ISA.Types.Symbolic          hiding (getValue)
 import           Redfin.IDE.Types
 import           Redfin.IDE.Widget
 
-
 -- | Display the assembly source code of the program
-sourceWidget :: FilePath -> App a -- [(CAddress, Instruction (Data Int32))]
+sourceWidget :: FilePath -> App a
 sourceWidget fpath = do
   log D "Displaying source code"
-  div [classList [ ("box", True)
-                 , ("sourceWidget", True)]]
-    [ h3 [] [text "Source code"]
-    , ol [classList [("listing", True)]]
-      (map lineView src)
-    ]
+  void $ div [classList [ ("box", True)
+                        , ("sourceWidget", True)]]
+           [ h3 [] [text "Source code"]
+           , ol [classList [("listing", True)]]
+             (map lineView src)
+           ]
   sourceWidget fpath
---    , Just . Left <$> (liftIO . atomically $ checkActiveIC ic)
-    -- , div [] [ Nothing <$ button [onClick] [text "Load from file"]
-    --          , Just  . getValue <$> input [value (Text.pack fpath)
-    --                                      , placeholder "file.redfin"
-    --                                      , onChange]]]
---     ] >>= \case
---     Nothing -> do
---       sourceWidget fpath
--- --      pure []
--- --      sourceWidget fpath
---     Just fpath' -> do
---       log I $ "Loading script from file " <> Text.pack fpath'
---       sourceWidget fpath'
 
   where src = map (first (+ 1)) $ _source ?ide
 

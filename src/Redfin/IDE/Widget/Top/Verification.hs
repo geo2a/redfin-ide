@@ -56,7 +56,7 @@ box xs =
       ((h4 [] [text "Verifier"]) : xs)
 
 control :: VerifierState -> Widget HTML Action
-control (VerifierState err propTxt _ prfTxt _) = div []
+control (VerifierState err propTxt _ prfTxt _ _) = div []
   [ PropertyChanged . targetValue . target <$>
       div [] [ label [] [text "Property: "]
              , input [onChange, placeholder propTxt, value propTxt]
@@ -92,7 +92,7 @@ proof = \case
 
 verificationWidget :: App a
 verificationWidget = do
-  args@(VerifierState err propTxt thm prf contra) <- liftIO $ readTVarIO (_verifier ?ide)
+  args@(VerifierState err propTxt thm prf contra history) <- liftIO $ readTVarIO (_verifier ?ide)
   trace <- liftIO $ readTVarIO (_trace ?ide)
   e <- box [ Just <$> control args
            , Nothing <$ errorNotice err
@@ -138,7 +138,7 @@ verificationWidget = do
                                              , _verifierProp = Just t
                                              , _verifierProof = Just prf
                                              , _verifierContra = getContra prf})
-            processProof (_contraStates ?ide) prf
+            processProof (_events ?ide) prf
           verificationWidget
 
 getContra :: Proof -> IntSet
@@ -146,13 +146,12 @@ getContra = \case
   Proved _             -> mempty
   Falsifiable _ contra -> IntSet.fromList $ map fst contra
 
-processProof :: TMVar IntSet -> Proof -> STM ()
-processProof contraStates = \case
+processProof :: TQueue IDEEvent -> Proof -> STM ()
+processProof events = \case
   Proved prop -> do
     -- log I $ "Property " <> Text.pack (show prop) <> " proved"
-      putTMVar contraStates mempty
+      writeTQueue events (ContraChanged mempty)
   Falsifiable prop contra -> do
     -- log I $ "Property " <> Text.pack (show prop) <> " falsifiable! " <>
     --         "Counterexample updated with: " <> Text.pack (show $ map fst contra)
-
-      putTMVar contraStates (IntSet.fromList $ map fst contra)
+      writeTQueue events (ContraChanged . IntSet.fromList $ map fst contra)

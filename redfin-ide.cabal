@@ -45,14 +45,15 @@ executable redfin-ide-exe
                     , PatternSynonyms
                     , TupleSections
                     , TypeApplications
-
+                    , RankNTypes
+                    , PatternSynonyms
   GHC-options:      -Wall
                     -fno-warn-name-shadowing
                     -fno-warn-unused-imports
                     -fno-warn-unused-matches
+                    -fno-warn-redundant-constraints
                     -Wcompat
                     -Wincomplete-record-updates
-                    -Wredundant-constraints
                     -threaded -rtsopts -with-rtsopts=-N
   build-depends: aeson
                , aeson-pretty

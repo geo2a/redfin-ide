@@ -63,22 +63,20 @@ spawn children states contra n = do
      cs  =
        [ ("node", True)
        , ("reachable", maybe False (\x->x) (isReachable <$> IntMap.lookup n states))
-       , ("unreachable", maybe False (\x->x) (Prelude.not . isReachable <$> IntMap.lookup n states))
        , ("hidden", hidden [n] states)
        , ("has-hidden-children", False)
        , ("halted", maybe False toBool (getBinding (F Halted) =<< (IntMap.lookup n states)))
        , ("contra", IntSet.member n contra)
-          -- any (\(Tree.Node (Node i ctx) _) ->
-          --        (not $ isReachable ctx) && (not $ _displayUnreachableVal ?ide)) ns)
        ]
      hidden xs states =
-       any (\ctx -> (Prelude.not $ isReachable ctx) && (Prelude.not $ _displayUnreachableVal ?ide))
+       any (\ctx -> (Prelude.not $ isReachable ctx))
        . catMaybes . map (\n -> IntMap.lookup n states) $ xs
 
 -- | Display a layout node as a clickable number that triggers the display
 --   of the corresponding state
 node :: Int -> App ()
 node n = do
+  contraStates <- _verifierContra <$> liftIO (readTVarIO (_verifier ?ide))
   ev <- orr [ Left . Just <$> a [onClick] [ text (Text.pack . show $ n) ]
             , Right <$> liftIO (atomically fetch)
             ]
@@ -91,10 +89,9 @@ node n = do
     Right (Just diff) -> do
       log I $ "Node " <> Text.pack (show n) <>
               " received an update: " <> Text.pack (show diff)
---      pure ()
       trace <- liftIO (readTVarIO (_trace ?ide))
       void . liftIO . atomically $ writeTVar (_activeNode ?ide) (locKey (_focus trace))
-      htmlTree (_states trace) (_contraStatesVal ?ide) diff
+      htmlTree (_states trace) contraStates diff
   where fetch :: STM (Maybe (Tree Int ()))
         fetch = do
           b <- (== n) <$> readTVar (_activeNode ?ide)

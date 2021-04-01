@@ -18,7 +18,7 @@ import           Colog                           (HasLog (..), LogAction (..),
 import           Colog.Message                   (Msg (..))
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                  hiding (id)
+import           Concur.Replica                  hiding (defaultValue, id)
 import           Control.Concurrent.STM
 import           Control.Monad.IO.Class          (MonadIO)
 import           Control.Monad.Reader            (MonadReader, ReaderT (..))
@@ -91,48 +91,51 @@ type NodeId = Int
 _trace :: IDEState -> TVar Trace
 _trace = Engine._trace . _engine
 
+class Default a where
+  defaultValue :: a
+
 data VerifierState =
   VerifierState { _verifierError   :: Maybe Text
                 , _verifierPropTxt :: Text
                 , _verifierProp    :: Maybe ACTL
                 , _verifierProof   :: Maybe Proof
                 , _verifierContra  :: IntSet
+                , _propertyHistory :: [ACTL]
                 }
 
-emptyVerifierState :: VerifierState
-emptyVerifierState =
-  VerifierState Nothing "" Nothing Nothing mempty
+instance Default VerifierState where
+  defaultValue = VerifierState Nothing "" Nothing Nothing mempty mempty
+
+data ExecutorState =
+  ExecutorState { _executorSteps     :: Int
+                , _executorInitState :: Context Sym
+                }
+
+instance Default ExecutorState where
+  defaultValue = ExecutorState 0 emptyCtx
+
+data IDEEvent = Proceed
+              | SourceChanged [(CAddress, Instruction Int32)]
+              | SaveLoaded IDEState
+              | ExampleChanged Example
+              | StepsChanged Steps
+              | RunPressed
+              | InitStateChanged (Context Sym)
+              | ContraChanged IntSet
 
 data IDEState =
-  IDEState { _engine                :: EngineState
-           , _traceChanged          :: TMVar (Maybe (Tree Int ()))
+  IDEState { _engine           :: EngineState
+           , _events           :: TQueue IDEEvent
 
-           , _displayUnreachable    :: TMVar Bool
-           , _displayUnreachableVal :: Bool
+           , _executor         :: TVar ExecutorState
+           , _verifier         :: TVar VerifierState
 
-           , _steps                 :: TMVar Steps
-           , _stepsVal              :: Steps
+           , _traceChanged     :: TMVar (Maybe (Tree Int ()))
+           , _activeNode       :: TVar NodeId
 
-           , _timeout               :: TMVar Int
-           , _timeoutVal            :: Int
-
-           , _activeNode            :: TVar NodeId
-
-           , _activeExample         :: TMVar Example
-           , _activeExampleVal      :: Example
-
-           , _activeInitState       :: TMVar (Context Sym)
-           , _activeInitStateVal    :: (Context Sym)
-
-           , _source                :: [(CAddress, Instruction Int32)]
-
-           , _solving               :: TMVar ()
-           , _propertyHistory       :: TVar [ACTL]
-           , _contraStates          :: TMVar IntSet
-           , _contraStatesVal       :: IntSet
-           , _verifier              :: TVar VerifierState
-
-           , _savePrefix            :: FilePath
+           , _activeExampleVal :: Example
+           , _source           :: [(CAddress, Instruction Int32)]
+           , _savePrefix       :: FilePath
 
            }
 
@@ -150,60 +153,28 @@ emptyIDE = do
   trace  <- newTVarIO emptyTrace
   engine <- mkEngineState trace
   traceChanged <- newEmptyTMVarIO
-  displayUnreachable <- newEmptyTMVarIO
-  let displayUnreachableVal = True
 
-  steps  <- newEmptyTMVarIO
-  let stepsVal = 0
-
-  timeout <- newEmptyTMVarIO
-  let timeoutVal = 100
+  events <- newTQueueIO
 
   activeNode <- newTVarIO (-1)
 
-  activeExample <- newEmptyTMVarIO
   let activeExampleVal = None
-
-  activeInitState <- newEmptyTMVarIO
-  let activeInitStateVal = emptyCtx
-
   let source = []
 
-  solving <- newEmptyTMVarIO
-  propertyHistory <- newTVarIO []
-  contraStates <- newTMVarIO mempty
-  verifierState <- newTVarIO emptyVerifierState
+  executorState <- newTVarIO defaultValue
+  verifierState <- newTVarIO defaultValue
 
   pure $ IDEState
     engine
-
-    traceChanged
-
-    displayUnreachable
-    displayUnreachableVal
-
-    steps
-    stepsVal
-
-    timeout
-    timeoutVal
-
-    activeNode
-
-    activeExample
-    activeExampleVal
-
-    activeInitState
-    activeInitStateVal
-
-    source
-
-    solving
-    propertyHistory
-    contraStates
-    mempty
+    events
+    executorState
     verifierState
 
+    traceChanged
+    activeNode
+
+    activeExampleVal
+    source
     "/home/geo2a/Desktop/redfin-ide/"
 
 

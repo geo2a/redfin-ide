@@ -8,10 +8,11 @@ import           Colog                           (HasLog (..), LogAction,
                                                   pattern I)
 import           Concur.Core
 import           Concur.Core.Types
-import           Concur.Replica                  hiding (id)
+import           Concur.Replica                  hiding (defaultValue, id)
 import qualified Concur.Replica.DOM.Events       as P
 import           Control.Applicative             (Alternative, empty, (<|>))
 import           Control.Concurrent.STM
+import           Control.Concurrent.STM.TQueue
 import           Control.Monad.IO.Class          (liftIO)
 import           Control.Monad.Reader
 import qualified Control.MultiAlternative        as MultiAlternative
@@ -40,25 +41,27 @@ import qualified ISA.Example.Add                 as EAdd
 import qualified ISA.Example.MotorControl        as ELoop
 import qualified ISA.Example.Sum                 as ESum
 
-swapExample :: IDEState -> Example -> IO IDEState
-swapExample ide = \case
-  None -> emptyIDE
-  Add -> pure ide { _source = assemble $ EAdd.addLowLevel
-                  , _activeExampleVal = Add
-                  , _stepsVal = 0
-                  , _activeInitStateVal = EAdd.initCtx
-                  }
-  Sum -> pure ide { _source = assemble $ ESum.sumArrayLowLevel
-                  , _activeExampleVal = Sum
-                  , _stepsVal = 0
-                  , _activeInitStateVal = ESum.initCtx
-                  }
-  MotorLoop -> pure
-    ide { _source = assemble $ ELoop.mc_loop
-        , _activeExampleVal = MotorLoop
-        , _stepsVal = 0
-        , _activeInitStateVal = ELoop.initCtx
-        }
+swapExample :: Example -> App IDEState
+swapExample = \case
+  None -> liftIO emptyIDE
+  Add -> do
+    liftIO . atomically . writeTVar (_executor ?ide) $
+      defaultValue {_executorInitState = EAdd.initCtx}
+    pure ?ide { _source = assemble $ EAdd.addLowLevel
+             , _activeExampleVal = Add
+             }
+  Sum -> do
+    liftIO . atomically . writeTVar (_executor ?ide) $
+      defaultValue {_executorInitState = ESum.initCtx}
+    pure ?ide { _source = assemble $ ESum.sumArrayLowLevel
+             , _activeExampleVal = Sum
+             }
+  MotorLoop -> do
+    liftIO . atomically . writeTVar (_executor ?ide) $
+      defaultValue {_executorInitState = ELoop.initCtx}
+    pure ?ide { _source = assemble $ ELoop.mc_loop
+             , _activeExampleVal = MotorLoop
+             }
 
 examplesWidget :: App a
 examplesWidget = do
@@ -74,7 +77,7 @@ examplesWidget = do
                      exampleButton None
                  ]
            ]
-  liftIO . atomically $ orElse (putTMVar (_activeExample ?ide) e) (void $ swapTMVar (_activeExample ?ide) e)
+  liftIO . atomically $ writeTQueue (_events ?ide) (ExampleChanged e)
   examplesWidget
   where exampleButton ex =
           button [ classList [ ("exampleButton", True)

@@ -69,7 +69,8 @@ stateWidget n = do
   case ev of
     Nothing         -> stateWidget n
     Just (Left _)   -> do
-      let halted = maybe False toBool (getBinding (F Halted) =<< IntMap.lookup n (_states trace))
+      let halted = maybe False toBool $
+            getBinding (F Halted) =<< IntMap.lookup n (_states trace)
       when (Prelude.not halted) $ do
         diff <- continueFrom n
         liftIO . atomically $ orElse (putTMVar (_traceChanged ?ide) diff)

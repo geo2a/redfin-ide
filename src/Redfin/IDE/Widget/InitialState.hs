@@ -52,10 +52,11 @@ parseValue :: Text -> Key -> Either Text (Key, Sym)
 parseValue txt k =
   (k,) <$> parseSym "" txt
 
-initStateWidget :: Context Sym -> App a
-initStateWidget ctx = do
-  let relevant = fmap (Text.pack . show) $ Map.filterWithKey isRelevant (_bindings ctx)
-      cs = Map.fromList (_constraints ctx)
+initStateWidget :: App a
+initStateWidget = do
+  activeInitState <- _executorInitState <$> liftIO (readTVarIO (_executor ?ide))
+  let relevant = fmap (Text.pack . show) $ Map.filterWithKey isRelevant (_bindings activeInitState)
+      cs = Map.fromList (_constraints activeInitState)
   bufferBindings <- liftIO $ newTVarIO relevant
   bufferConstraints <- liftIO $ newTVarIO cs
   xs <- orr [ Left <$> keyValsWidget bufferBindings
@@ -65,15 +66,15 @@ initStateWidget ctx = do
   let xs' = rights . map (uncurry (flip parseValue)) . Map.toList $ bindings
   -- log I $ Text.pack (show xs')
   let newInitState =
-        (MkContext (Map.union (Map.fromList xs') (_bindings ctx))
+        (MkContext (Map.union (Map.fromList xs') (_bindings activeInitState))
                    (Map.empty)
                    true
                    (Map.assocs constraints)
                    Nothing)
-  when (newInitState /= (_activeInitStateVal ?ide)) $ do
-    liftIO . atomically $ putTMVar (_activeInitState ?ide) newInitState
+  when (newInitState /= activeInitState) $ do
+    liftIO . atomically $ writeTQueue (_events ?ide) (InitStateChanged newInitState)
     pure ()
-  initStateWidget newInitState
+  initStateWidget
   where isRelevant :: Key -> a -> Bool
         isRelevant k _ = case k of
           Reg _  -> True

@@ -31,7 +31,8 @@ import           Replica.VDOM.Render                as Render
 import           Replica.VDOM.Types                 (DOMEvent (getDOMEvent))
 import           Text.Read                          (readEither)
 
-import           Redfin.IDE.Types
+import           Redfin.IDE.Types                   hiding (IDEEvent (..))
+import qualified Redfin.IDE.Types                   as Types
 import           Redfin.IDE.Types.Save
 import           Redfin.IDE.Widget
 import           Redfin.IDE.Widget.Top.Examples
@@ -41,24 +42,22 @@ import           ISA.Types
 import           ISA.Types.Symbolic                 hiding (getValue)
 
 data Action = StepsChanged String
-            | TimeoutChanged String
             | RunPressed
-            | DisplayUnreachableToggled
 
 -- | Top pane of the IDE and its widgets
-topPane :: App IDEState
+topPane :: App a
 topPane =
   section [classList [ ("pane", True), ("toppane", True)]]
     [ div [classList [ ("contents", True)]]
         [ saveWidget ("", "") Nothing
         , examplesWidget
-        , symExecWidget (_stepsVal ?ide) (_timeoutVal ?ide)
+        , symExecWidget
         , verificationWidget
         ]
     ]
 
 -- | Save and restore the IDE state from file
-saveWidget :: (FilePath, FilePath) -> Maybe Text -> App IDEState
+saveWidget :: (FilePath, FilePath) -> Maybe Text -> App a
 saveWidget (save, load) msg = do
   let prefix = _savePrefix ?ide
   div [classList [("box", True), ("saveWidget", True)]]
@@ -71,9 +70,9 @@ saveWidget (save, load) msg = do
                                , Just . getValue <$> input [value (Text.pack save)
                                                            , placeholder "path/to/project.json"
                                                            , onChange]]
-             -- , Nothing <$ span [classList [("notice", True)]]
-             --                   [ maybe empty text msg
-             --                   , liftIO (threadDelay $ (5 * 10^6))]
+             , Nothing <$ span [classList [("notice", True)]]
+                               [ maybe empty text msg
+                               , liftIO (threadDelay $ (5 * 10^6))]
              ]
     ] >>= \case Just (Left Nothing) -> do
                   log D $ "IDE saved into" <> Text.pack save
@@ -86,73 +85,40 @@ saveWidget (save, load) msg = do
                   log D $ "Loading IDE from " <> Text.pack load
                   liftIO (loadIDE (prefix <> load)) >>= \case
                     Left err  -> saveWidget (save, load) (Just err)
-                    Right ide -> pure ide
+                    Right ide -> do
+                      liftIO . atomically $
+                        writeTQueue (_events ?ide) (Types.SaveLoaded ide)
+                      saveWidget (save, load) Nothing
                 Just (Right (Just load')) ->
                   saveWidget (save, load') Nothing
                 Nothing -> saveWidget (save, load) Nothing
 
 -- | Specify the number of symbolic execution steps
-symExecWidget :: Steps -> Int -> App a
-symExecWidget steps timeout = do
+symExecWidget :: App a
+symExecWidget = do
+  steps <- _executorSteps <$> liftIO (readTVarIO (_executor ?ide))
   log D "SymExec widget initialised"
-  widget >>= \case
+  widget (Text.pack $ show steps) >>= \case
     StepsChanged e ->
       case readEither e of
-        Left _      -> symExecWidget steps timeout
-        Right newSteps ->
-          symExecWidget newSteps timeout
+        Left _      -> symExecWidget
+        Right newSteps -> do
+          liftIO . atomically $ writeTQueue (_events ?ide) (Types.StepsChanged newSteps)
+          symExecWidget
     RunPressed -> do
       div [classList [ ("box", True), ("symExecWidget", True)]]
           [ h4 [] [ text ("Symbolic simulator")]
-          , liftIO . atomically $ putTMVar (_steps ?ide) steps
+          -- , liftIO . atomically $ putTMVar (_steps ?ide) steps
+          , liftIO . atomically $ writeTQueue (_events ?ide) Types.RunPressed
           , text "Executing..."]
-      symExecWidget steps timeout
-    DisplayUnreachableToggled -> do
-      let display' = not (_displayUnreachableVal ?ide)
-          ide' = ?ide {_displayUnreachableVal = display'}
-      liftIO . atomically $ putTMVar (_displayUnreachable ?ide) display'
-      let ?ide = ide' in symExecWidget steps timeout
-    TimeoutChanged _ -> symExecWidget steps timeout
+      symExecWidget
   where
-    stepsTxt = Text.pack . show $ steps
-    timeoutTxt = Text.pack . show $ timeout
-    widget =
+    widget stepsTxt =
       div [classList [ ("box", True), ("symExecWidget", True)]]
           [ h4 [] [text ("Symbolic simulator")]
           , StepsChanged <$> Text.unpack . targetValue . target <$>
                        p [] [ label [] [text "Steps: "]
                             , input [placeholder stepsTxt, value stepsTxt, onChange]
                             ]
-          , TimeoutChanged <$> Text.unpack . targetValue . target <$>
-                       p [] [ label [] [text "Timeout (s): "]
-                            , input [placeholder timeoutTxt, value timeoutTxt, onChange]
-                            ]
           , RunPressed <$ button [onClick] [text "Run"]
-          , DisplayUnreachableToggled <$
-              label [] [ input [type_ "checkbox", checked (_displayUnreachableVal ?ide), onClick]
-                       , text "Display unreachable"]
           ]
-
--- -- | Handle SMT solving
--- smtWidget :: App a
--- smtWidget = do
---   log D "SMT widget initialised"
---   e <- div [classList [ ("widget", True), ("SMTWidget", True)
---                       ]
---            ]
---            [ h4 [] [text "SMT Solver"]
---            , SolvePressed <$ button [onClick] [text "Solve"]
---            ,
---            ]
---   case e of
---     SolvePressed -> do
---       div [classList [ ("widget", True), ("SMTWidget", True)
---                      ]
---           ] [ liftIO . atomically $ putTMVar (_solving ?ide) ()
---             , text "Solving..."]
---       smtWidget
---     DisplayUnreachableToggled -> do
---       let display' = not (_displayUnreachableVal ?ide)
---           ide' = ?ide {_displayUnreachableVal = display'}
---       liftIO . atomically $ putTMVar (_displayUnreachable ?ide) display'
---       let ?ide = ide' in smtWidget
